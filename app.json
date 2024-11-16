@@ -1,0 +1,81 @@
+{
+  "expo": {
+    "newArchEnabled": true,
+    "name": "Connect & Move",
+    "slug": "connectandmove",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#FFFFFF"
+    },
+    "userInterfaceStyle": "automatic",
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "supportsTablet": true,
+      "bundleIdentifier": "com.connectandmove",
+      "buildNumber": "1",
+      "infoPlist": {
+        "CFBundleDevelopmentRegion": "fr_FR",
+        "photosPermission": "L'accès à votre bibliothèque vous permet de",
+        "NSCameraUsageDescription": "L'accès à votre caméra vous permet de",
+        "NSLocationWhenInUseUsageDescription": "Votre localisation sera utilisée pour identifier les lieux de rencontre les plus proches",
+        "NSLocationAlwaysUsageDescription": "Votre localisation sera utilisée pour identifier les lieux de rencontre les plus proches",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Votre localisation sera utilisée pour identifier les lieux de rencontre les plus proches",
+        "NSPhotoLibraryAddUsageDescription": "L'accès à votre bibliothèque vous permet de sélectionner des photos de vous.",
+        "NSPhotoLibraryUsageDescription": "L'accès à votre bibliothèque vous permet de sélectionner des photos de vous."
+      },
+      "config": {
+        "googleMapsApiKey": "AIzaSyAGiSiBGEsvDTKyfQxlhgD3BFKYHp1cYKQ"
+      }
+    },
+    "android": {
+      "googleServicesFile": "./google-services.json",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#FFFFFF"
+      },
+      "package": "com.connectandmove",
+      "versionCode": 1,
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyAGiSiBGEsvDTKyfQxlhgD3BFKYHp1cYKQ"
+        }
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "3e879ba4-850b-49aa-8ab0-f932a1f53472"
+      }
+    },
+    "plugins": [
+      "@react-native-firebase/app",
+      "@react-native-firebase/auth",
+      ["expo-image-picker"],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 34,
+            "targetSdkVersion": 34,
+            "buildToolsVersion": "34.0.0"
+          },
+          "ios": {
+            "deploymentTarget": "15.1",
+            "useFrameworks": "static"
+          }
+        }
+      ],
+      "expo-localization"
+    ]
+  }
+}

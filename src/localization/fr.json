@@ -1,0 +1,339 @@
+{
+  "language": "French",
+
+  "je_cherche_un_vehicule": {
+    "title": "Je cherche un véhicule",
+    "desc": "Ajoutez un véhicule que vous recherchez"
+  },
+  "j_ai_trouve_un_vehicule": {
+    "title": "J'ai trouvé un véhicule",
+    "desc": "Ajoutez un véhicule que vous avez retrouvé"
+  },
+  "mes_demarches": {
+    "title": "Mes démarches",
+    "desc": "La liste de tous vos véhicules recherchés et aussi la liste de tous les véhicules que vous avez aidé à retrouver"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "desc": "Restez informé·e ici",
+    "noNotifTitle": "Aucune notification pour le moment",
+    "noNotifDesc": "Vous serez notifié(e) ici quand il y'aura du nouveau"
+  },
+  "mon_profil": {
+    "title": "Mon profil",
+    "desc": "Modifiez vos informations personnelles"
+  },
+  "comment_ca_marche": {
+    "title": "Comment ça marche",
+    "desc": "Trouvez des renseignements"
+  },
+  "text": {
+    "MySearchs": "Mes recherches",
+    "MyFinds": "Mes trouvailles",
+    "french": "Français",
+    "english": "Anglais",
+    "identification": "Identification",
+    "immatriculation": "Immatriculation",
+    "assurance": "Assurance",
+    "modifiedLang": "Langue modifiée vers: Français",
+    "homeConnected": "En ligne",
+    "chooseCountry": "Choisissez un pays",
+    "conseils": "Nos Conseils"
+  },
+
+  "search": {
+    "clear": "Effacer",
+    "noCountryFound": "Aucun pays trouvé."
+  },
+  "noAuth": {
+    "text": "Identifiez-vous pour pouvoir profiter de toutes nos fonctionnalités",
+    "btn": "Connexion"
+  },
+  "notif": {
+    "text": "Nous n'avons pas accès aux notifications",
+    "btn": "Autoriser"
+  },
+  "screens": {
+    "profile": {
+      "pageTitle": "Mon compte",
+      "account": {
+        "title": "Compte",
+        "personalInformations": "Informations personnelles",
+        "SendRib": "Coordonnées bancaires",
+        "email1": "Veuillez cliquer sur le lien envoyé à",
+        "email2": "pour valider votre adresse e-mail",
+        "email3": "Je n'ai pas reçu de lien",
+        "verifyDoc": "Vérifier mes documents"
+      },
+
+      "traduction": {
+        "title": "Traduction",
+        "ChangeLanguage": "Changer de langue"
+      },
+      "commu": {
+        "title": "Communauté",
+        "share": "Partager Sur4Plots",
+        "WriteComment": "Laisser un commentaire"
+      },
+      "support": {
+        "title": "Support",
+        "website": "Notre site web",
+        "problem": "Signaler un problème"
+      },
+
+      "legal": {
+        "title": "Légal",
+        "policy": "Politique de confidentialité",
+        "problem": "Signaler un problème"
+      },
+
+      "others": {
+        "title": "Autres",
+        "logout": "Se déconnecter",
+        "delete": "Supprimer mon compte",
+        "problem": "Signaler un problème"
+      }
+    },
+
+    "home": {
+      "pageTitle": "Accueil",
+      "findVehicle": "Retrouver mon véhicule",
+      "findVehicleInfo": "Renseignez vos informations",
+      "btn": "Continuer",
+      "iFindVehicle": "J'ai trouvé un véhicule",
+      "iFindVehicleInfo": "Renseignez vos détails",
+      "vehicleLost": "Véhicule disparu",
+      "vehicleLostInfo": "Des conseils pour vous aider"
+    },
+
+    "landing": {
+      "title": "Retrouvez votre véhicule",
+      "text": "Facilement dans le monde entier",
+      "btn1": "Créer mon compte",
+      "btn2": "J'ai déjà un compte"
+    },
+
+    "login": {
+      "pageTitle": "Connexion",
+      "forgotPassword": "Mot de passe oublié",
+      "btn": "S'identifier",
+      "alert": {
+        "title": "Nous avons enregistré vos identifiants",
+        "desc": "Voulez-vous remplir avec vos dernières informations de connexion ?",
+        "btn1": "Oui remplir automatiquement",
+        "btn2": "Non, merci"
+      }
+    },
+
+    "register": {
+      "pageTitle": "S'inscrire",
+      "personalInfo": "Informations personnelles",
+      "finish": "Terminé",
+      "knowing": "Comment avez-vous connu Sur4Plots",
+      "btn": "Terminé"
+    },
+
+    "forgotPassword": {
+      "pageTitle": "Mot de passe oublié",
+      "forgotPassword": "Mot de passe oublié",
+      "btn": "Envoyer le lien de réinitialisation"
+    }
+  },
+  "navigator": {
+    "one": "Accueil",
+    "two": "Démarches",
+    "three": "Notifications"
+  },
+
+  "inputs": {
+    "select": "Chosir",
+    "lastName": {
+      "title": "Nom *",
+      "placeholder": "Votre nom *"
+    },
+    "firstName": {
+      "title": "Prénom *",
+      "placeholder": "Votre prénom *"
+    },
+    "secondFirstName": {
+      "title": "2ème Prénom (facultatif)",
+      "placeholder": "Votre 2ème prénom (facultatif)"
+    },
+    "email": {
+      "title": "Email *",
+      "placeholder": "Votre adresse e-mail *"
+    },
+    "password": {
+      "title": "Mot de passe *",
+      "placeholder": "Votre mot de passe *"
+    },
+    "passwordVerif": {
+      "title": "Resaisissez le mot de passe *",
+      "placeholder": "Resaisissez le mot de passe *"
+    }
+  },
+  "vehicleType": {
+    "headerTitle": "Type de véhicule",
+    "chooseType": "Veuillez choisir un type de véhicule"
+  },
+  "additionalInfo": {
+    "headerTitle": "Informations supplémentaires",
+    "plateNumber": "Plaque d'immatriculation",
+    "insurance": "Assurance",
+    "vehicleFound": "Votre véhicule a été retrouvé",
+    "vehicleFoundMessage": "RDV dans l'onglet Démarches pour pouvoir consulter les photos et la dernière position où il a été aperçu",
+    "searchAcknowledged": "Votre recherche a bien été prise en compte",
+    "searchAcknowledgedMessage": "Vous serez notifié sous peu dès qu'on aura du nouveau concernant votre véhicule",
+    "errorOccurred": "Une erreur est survenue"
+  },
+  "buttons": {
+    "search": "Rechercher"
+  },
+
+  "personal_info_header": "Informations personnelles",
+  "last_name_placeholder": "Nom *",
+  "first_name_placeholder": "Prénom *",
+  "success_title": "Succès",
+  "success_message": "Vos informations personnelles ont été modifiées avec succès.",
+  "ok_button": "Ok",
+  "submit_button": "Valider les changements",
+  "error_title": "Erreur de mise à jour",
+
+  "signal_bug": {
+    "header_title": "Signaler un problème",
+    "message_label": "Votre message",
+    "placeholder_message": "Décrivez le problème",
+    "remaining_characters": "caractères restants",
+    "feedback_message": "Votre avis compte énormément pour nous ! Chaque commentaire que vous partagez nous aide à améliorer nos fonctionnalités et à créer une meilleure expérience. Merci de contribuer à rendre notre application encore plus géniale !",
+    "success_alert_title": "Vos remarques comptent énormément pour nous",
+    "success_alert_message": "Merci de contribuer à rendre notre application encore plus géniale !",
+    "error_alert_title": "Erreur d'envoi du bug",
+    "send_button": "Envoyer"
+  },
+  "change_language": {
+    "header_title": "Changer de langue",
+    "french": "Français",
+    "english": "Anglais",
+    "language_changed": "Langue modifiée"
+  },
+
+  "write_comment": {
+    "header_title": "Laisser un commentaire",
+    "message_placeholder": "Votre message",
+    "remaining_characters": "restants",
+    "thanks_title": "Votre avis compte énormément pour nous",
+    "thanks_message": "Merci de contribuer à rendre notre application encore plus géniale!",
+    "button_text": "Envoyer"
+  },
+
+  "find_screen": {
+    "photos": "Photos",
+    "touch_to_add": "Touchez pour ajouter ({{count}}/8)",
+    "license_plate": "Plaque d'immatriculation",
+    "why_license_plate": "Pourquoi avons-nous besoin de la plaque d'immatriculation du véhicule ?",
+    "click_to_read": "Cliquez pour lire...",
+    "why_license_plate_response": "Notre application permet de s'entraider dans le but de retrouver des véhicules volés/disparus, un utilisateur déclare avoir perdu un véhicule et un autre comme vous, déclare l'avoir retrouvé\nRentrer la plaque d'immatriculation nous permet de vérifier qu'il s'agit bel et bien du véhicule en question",
+    "location": "Emplacement",
+    "fill_address_automatically": "Remplir l'adresse automatiquement",
+    "street_number": "Numéro de rue",
+    "postal_code": "Code postal",
+    "city": "Ville",
+    "country": "Pays",
+    "send": "Envoyer",
+    "camera_icon_alt": "Icône de caméra",
+    "delete_photo": "Supprimer la photo",
+    "error_paypal": "Une erreur est survenue lors de la transaction",
+
+    "headerTitle": "Déclarer un véhicule",
+    "locationAccessDeniedTitle": "Nous n'avons pas accès à votre position",
+    "locationAccessDeniedMessage": "Veuillez nous l'accorder dans vos paramètres?",
+    "openSettings": "Ouvrir les paramètres",
+    "cancel": "Annuler",
+    "locationFetchingError": "Impossible de récupérer la localisation",
+    "pushNotificationTitle": "Vous avez un match ! ✅",
+    "pushNotificationBody": "Votre signalement au sein de l'application Sur4plots a permis de retrouver votre véhicule... RDV dans l'onglet 'Démarches'",
+    "removeSpaces": "Enlever les espaces",
+    "emailTemplateDynamicFirstName": "cher utilisateur",
+    "missingFieldsTitle": "Certains champs sont vides",
+    "missingFieldsMessage": "Remplissez toutes les informations demandées",
+    "addPhotosTitle": "Ajoutez une ou plusieurs photos",
+    "addPhotosMessage": "Montrez-nous des photos du véhicule retrouvé en question avec la plaque bien visible",
+    "maxPhotosTitle": "8 photos maximum",
+    "maxPhotosMessage": "Vous avez atteint le nombre maximal de photos autorisées, veuillez-en supprimer quelques unes",
+    "announcementNotPublishedTitle": "Votre annonce n'a pas été publiée pour une ou plusieurs raisons",
+    "announcementNotPublishedMessage": "Soit un utilisateur a été plus rapide que vous, soit aucune demande de recherche n'existe avec cette plaque d'immatriculation",
+    "reportReceivedTitle": "Votre déclaration a été bien prise en compte",
+    "reportReceivedMessage": "Vous serez notifié sous peu dès qu'on aura du nouveau concernant le propriétaire de ce véhicule. Notez que vous serez rémunéré de 7€ (Sept Euros) lorsque le propriétaire aura confirmé qu'il s'agit bien de son véhicule, il vous suffira de nous envoyer un mail à l’adresse suivante : contact@sur4plots.com",
+    "selectImageOptionTitle": "Choisir une option",
+    "selectImageOptionMessage": "Veuillez sélectionner une option pour choisir une image",
+    "camera": "Caméra",
+    "library": "Bibliothèque",
+    "imagePickError": "Erreur lors de la sélection de l'image",
+    "uploadingImagesError": "Erreur lors du téléchargement ou de la récupération des images",
+    "imageUploadSuccess": "Images téléchargées avec succès",
+    "adminNotificationFoundVehicle": "Un utilisateur a trouvé un véhicule : {licensePlate}",
+    "adminNotificationNoSearcher": "Véhicule retrouvé mais pas de chercheur : {licensePlate}",
+    "location_description": "Emplacement approximatif ou vous l'avez vu pour la dernière fois"
+  },
+
+  "vehicle_screen": {
+    "infoHeader": "Informations",
+    "importantInfoText": "Infos importantes, cliquez pour lire",
+    "importantInfoDescription": "Vous pouvez vérifier gratuitement la photo du véhicule, si c'est bel et bien le votre, vous serez invité(e) à payer la somme dûe pour voir l'adresse du véhicule.\nAprès avoir éffectué le paiement, l'adresse où il a été aperçu en dernier sera affiché",
+    "licensePlateTitle": "Plaque d'immatriculation",
+    "insuranceTitle": "Assurance",
+    "vehicleTypeTitle": "Type de véhicule",
+    "publishedOnTitle": "Publié le",
+    "foundOnTitle": "Trouvé le",
+    "statusTitle": "État",
+    "viewPhotoButton": "Visualiser la photo",
+    "viewPositionButton": "Voir la position ({{price}}€)",
+    "address": "{{street}} · {{city}} {{postalCode}}, {{country}}",
+    "cancelAndReturn": "Annuler et revenir",
+    "noRequestTitle": "Aucune demande effectuée",
+    "noRequestDescription": "Toutes les demandes que vous effectuerez et leurs informations s'afficherons ici",
+    "inProgress": "En cours",
+    "found": "Retrouvé",
+    "paid": " · Payé",
+    "unpaid": " · Non payé"
+  },
+
+  "my_finds_screen": {
+    "infoHeader": "Informations",
+    "bankDetailsRequest": "Veuillez nous envoyer vos coordonnées bancaires ainsi que la plaque d'immatriculation afin que nous procédions aux vérifications et que nous vous fassions parvénir vos gains",
+    "licensePlateTitle": "Plaque d'immatriculation",
+    "insuranceTitle": "Assurance",
+    "lastPositionTitle": "Dernière position",
+    "publishedOnTitle": "Publié le",
+    "statusTitle": "État",
+    "paidTitle": "Payé",
+    "notPaidYet": "Nous ne vous avons pas encore payé",
+    "alreadyPaid": "Nous vous avons payé",
+    "notFound": "Aucun véhicule retrouvé",
+    "notFoundMessage": "Tous les véhicules que vous retrouverez et leurs informations s'afficherons ici"
+  },
+
+  "howitsworks_screen": {
+    "comment": "Comment",
+    "camarche": "ça marche?"
+  },
+
+  "error_occurred": "Un problème est survenu",
+  "data_retrieval_error": "Nous n'arrivons pas à récuperer vos données, veuillez contacter le support",
+  "logout_prompt": "Se déconnecter",
+  "logout_confirmation": "Êtes vous sûr de vouloir vous déconnecter?",
+  "cancel": "Annuler",
+  "logout": "Déconnexion",
+  "account_closure_request": "Demander la fermeture de mon compte",
+  "account_closure_confirmation": "Êtes vous sûr?",
+  "close_account": "Fermer mon compte",
+  "did_not_receive_verification_email": "Vous n'avez pas reçu l'e-mail de vérification à {{email}}",
+  "resend_verification_email": "Nous allons vous renvoyer un e-mail contenant un lien de validation",
+  "resend_link": "Renvoyer le lien",
+  "verification_email_sent": "L'e-mail de vérification vous a été envoyé",
+  "too_many_requests_error": "Vous avez fait trop de demandes, veuillez réessayer ultérieurement",
+  "success_request_sent": "Demande envoyée avec succès",
+  "will_process_soon": "Nous la traiterons dans les plus brefs délais (48h maximum)",
+  "oops_error": "Oops! Une erreur est survenue",
+  "share_message": "Découvrez Sur4Plots - la plateforme de référence pour la recherche et la récupération de véhicules volés ou perdus. Grâce à notre technologie avancée, retrouvez votre véhicule en un clin d'œil ! 🚗 Rejoignez notre communauté et participez à la lutte contre le vol automobile. Téléchargez dès maintenant notre application et bénéficiez de notre expertise. Cliquez ici pour commencer : \n{{website}}"
+}

@@ -1,0 +1,68 @@
+{
+  "project_info": {
+    "project_number": "1059136866702",
+    "project_id": "tis-78f04",
+    "storage_bucket": "tis-78f04.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1059136866702:android:58c5e8c10e2ea934c5fcdf",
+        "android_client_info": {
+          "package_name": "com.connectandmove"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1059136866702-qi5j4cqngr5d9ubeg3754vs3jt1gfkja.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC_9XO7FGBGm71kGXB5R5cmQpYCtYYbfLI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1059136866702-qi5j4cqngr5d9ubeg3754vs3jt1gfkja.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1059136866702:android:69aa3fca38086247c5fcdf",
+        "android_client_info": {
+          "package_name": "com.sunder.tis"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1059136866702-qi5j4cqngr5d9ubeg3754vs3jt1gfkja.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC_9XO7FGBGm71kGXB5R5cmQpYCtYYbfLI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1059136866702-qi5j4cqngr5d9ubeg3754vs3jt1gfkja.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
