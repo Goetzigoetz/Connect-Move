@@ -13,7 +13,7 @@ const INPUT_CLASS_BORDER_BOTTOM =
 const INPUT_CLASS_BORDER_BOTTOM_BG_WHITE =
   "bg-white border-b border-gray-300 w-full rounded px-3 py-2 h-[50px] text-lg text-gray-800";
 const INPUT_TEXT_AREA_CLASS =
-  "bg-gray-100 w-full rounded-md min-h-[100] pt-1 pb-3 px-5 text-lg text-gray-500 rounded-xl";
+  "bg-gray-100 w-full rounded-md min-h-[100] pt-1 pb-3 px-5 text-lg text-gray-500 rounded";
 // "bg-gray-100 w-full rounded-md px-5 pt-2 pb-4 text-base text-gray-500";
 
 const LINEAR_COLOR = ["#1C7EB5", "#3A9BD5"];

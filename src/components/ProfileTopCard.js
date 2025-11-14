@@ -21,9 +21,9 @@ import UserProfilePicture from "../components/Profile/UserProfilePicture";
 import { LinearGradient } from "expo-linear-gradient";
 import Icon from "../components/Icons";
 import { auth, db, storage } from "../../config/firebase";
-import { getDownloadURL, ref, uploadBytesResumable } from "firebase/storage";
+import { getDownloadURL, ref, uploadBytesResumable } from "@react-native-firebase/storage";
 import * as ImagePicker from "expo-image-picker";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, updateDoc } from "@react-native-firebase/firestore";
 import Loader from "../components/Loaders/Loader";
 import {
   formatNumber,
@@ -214,7 +214,7 @@ export default function ProfileTopCard({ userInfo, getUserInfo }) {
           {userInfo ? (
             <Text
               className="w-full capitalize text-xl ml-2"
-              style={{ fontFamily: "Inter_700Bold" }}
+              style={{ fontFamily: "Inter_500Medium" }}
             >
               {userInfo?.lastName}{" "}
               <Text

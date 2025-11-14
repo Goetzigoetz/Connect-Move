@@ -7,36 +7,29 @@ function enleverEspaces(chaine) {
   return chaine.replace(/\s/g, "");
 }
 
-async function sendWelcomeMail(mail) {
-  // send mail
-
-  await axios.post(
-    "https://api.sendgrid.com/v3/mail/send",
-    {
-      personalizations: [
+async function sendWelcomeEmail(email, username) {
+    try {
+      const response = await fetch(
+        "https://connectetmove.com/api/send-welcome",
         {
-          to: [
-            {
-              email: `${mail}`,
-            },
-          ],
-        },
-      ],
-      from: {
-        email: `${SENDGRID_FROM}`,
-        name: "MyLoka",
-      },
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email, username }),
+        }
+      );
 
-      template_id: enleverEspaces(`d-dac9337b06b649dab7e94a44eb18af57`),
-    },
-    {
-      headers: {
-        authorization: `Bearer ${SENDGRID_API_KEY}`,
-        "Content-Type": "application/json",
-      },
+      if (response.ok) {
+        const json = await response.json();
+        console.log("Succès:", json.message || "Email envoyé");
+      } else {
+        console.error("Erreur serveur:", response.status);
+      }
+    } catch (error) {
+      console.error("Erreur requête:", error);
     }
-  );
-}
+  }
 
 const sendMessageMail = async (user, message) => {
   await axios.post(
@@ -82,4 +75,4 @@ const sendMessageMail = async (user, message) => {
   sendNotifs(user, message);
 };
 
-export { sendWelcomeMail, sendMessageMail };
+export { sendWelcomeEmail, sendMessageMail };

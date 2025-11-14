@@ -1,11 +1,7 @@
-import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
-import {
-  getAuth,
-  initializeAuth,
-  getReactNativePersistence,
-} from "firebase/auth";
-import { getStorage } from "firebase/storage";
+import { initializeApp, getApp, getApps } from "@react-native-firebase/app";
+import firestoreModule from "@react-native-firebase/firestore";
+import authModule from "@react-native-firebase/auth";
+import storageModule from "@react-native-firebase/storage";
 import {
   FIREBASE_API_KEY,
   FIREBASE_AUTH_DOMAIN,
@@ -15,9 +11,8 @@ import {
   FIREBASE_APP_ID,
   FIREBASE_MEASUREMENT_ID,
 } from "@env";
-import ReactNativeAsyncStorage from "@react-native-async-storage/async-storage";
 
-const firebaseConfig = {
+export const firebaseConfig = {
   apiKey: FIREBASE_API_KEY,
   authDomain: FIREBASE_AUTH_DOMAIN,
   projectId: FIREBASE_PROJECT_ID,
@@ -26,12 +21,9 @@ const firebaseConfig = {
   appId: FIREBASE_APP_ID,
   measurementId: FIREBASE_MEASUREMENT_ID,
 };
-const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
-export const storage = getStorage();
-export const auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(ReactNativeAsyncStorage),
-});
 
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
-// export const auth = initializeAuth(app);
+export const db = firestoreModule();
+export const auth = authModule();
+export const storage = storageModule();

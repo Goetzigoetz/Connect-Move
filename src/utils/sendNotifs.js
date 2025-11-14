@@ -1,15 +1,11 @@
-import { SENDGRID_FROM, SENDGRID_API_KEY } from "@env";
-import { addDoc, collection } from "firebase/firestore";
+
 import moment from "moment";
 import { db } from "../../config/firebase";
-import axios from "axios";
+import { addDoc, collection } from "@react-native-firebase/firestore";
 
-function enleverEspaces(chaine) {
-  return chaine.replace(/\s/g, "");
-}
 
 export default async function sendNotifs(user, message) {
-  // send push notif
+  // Préparer la notification push
   const MESSAGE = {
     to: user.expoPushToken,
     sound: "default",
@@ -17,34 +13,42 @@ export default async function sendNotifs(user, message) {
     body: `${message.desc}`,
   };
 
-  // save to db
+  // Données à enregistrer dans Firestore
   const DATA_TO_ADD = {
     title: `${message.title}`,
     text: `${message.desc}`,
     userId: `${user.id}`,
     isNew: true,
-    type:
+    type: 
       !message.type ||
       message.type == null ||
       message.type == "" ||
       message.type == undefined
         ? null
         : message.type,
-    createdAt: moment().format(),
+    createdAt: moment().format(), // Timestamp formaté
   };
 
-  if (user.expoPushToken !== undefined || user.expoPushToken !== "") {
-    await fetch("https://exp.host/--/api/v2/push/send", {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Accept-encoding": "gzip, deflate",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(MESSAGE),
-    });
-    await addDoc(collection(db, "notifications"), DATA_TO_ADD);
-  } else {
-    await addDoc(collection(db, "notifications"), DATA_TO_ADD);
+  try {
+    if (user.expoPushToken) {
+      // Envoi de la notification push
+      await fetch("https://exp.host/--/api/v2/push/send", {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Accept-encoding": "gzip, deflate",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(MESSAGE),
+      });
+
+      console.log("Notification push envoyée avec succès !");
+    } else {
+      console.log("Pas de token Expo, notification locale seulement.");
+    }
+
+    // Enregistrement de la notification dans Firestore
+    await addDoc(collection(db, "notifications"), DATA_TO_ADD)
+  } catch (error) {
   }
 }

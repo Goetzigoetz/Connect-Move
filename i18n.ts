@@ -1,7 +1,10 @@
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
-import { en, fr } from "./src/localization";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+
+// IMPORTS DIRECTS DES FICHIERS JSON
+import fr from "./locales/fr/translation.json";
+import en from "./locales/en/translation.json";
 
 const STORE_LANGUAGE_KEY = "settings.lang";
 
@@ -9,37 +12,30 @@ const languageDetectorPlugin = {
   type: "languageDetector",
   async: true,
   init: () => {},
-  detect: async function (callback: (lang: string) => void) {
+  detect: async function (callback) {
     try {
-      // get stored language from Async storage
-      // put your own language detection logic here
       await AsyncStorage.getItem(STORE_LANGUAGE_KEY).then((language) => {
         if (language) {
-          //if language was stored before, use this language in the app
           return callback(language);
         } else {
-          //if language was not stored yet, use english
-          return callback("en");
+          return callback("fr"); // ou "en" selon ta préférence
         }
       });
     } catch (error) {
       console.log("Error reading language", error);
     }
   },
-  cacheUserLanguage: async function (language: string) {
+  cacheUserLanguage: async function (language) {
     try {
-      //save a user's language choice in Async storage
       await AsyncStorage.setItem(STORE_LANGUAGE_KEY, language);
     } catch (error) {}
   },
 };
+
+// NOUVEL OBJET RESOURCES AVEC LES FICHIERS JSON
 const resources = {
-  en: {
-    translation: en,
-  },
-  fr: {
-    translation: fr,
-  },
+  fr: { translation: fr },
+  en: { translation: en },
 };
 
 i18n
@@ -48,10 +44,10 @@ i18n
   .init({
     resources,
     compatibilityJSON: "v3",
-    // fallback language is set to english
-    fallbackLng: "fr",
+    fallbackLng: "fr", // ou "en"
     interpolation: {
       escapeValue: false,
     },
   });
+
 export default i18n;

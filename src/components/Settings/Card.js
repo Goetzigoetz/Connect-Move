@@ -17,7 +17,7 @@ export default function SettingsCard({
       exiting={FadeOut}
       onPress={onPress}
       activeOpacity={0.5}
-      className="my-1 p-2  flex-row rounded-xl items-center w-full border-b border-gray-200"
+      className="my-1 p-2  flex-row rounded items-center w-full border-b border-gray-200"
     >
       {/* left icon */}
       <View

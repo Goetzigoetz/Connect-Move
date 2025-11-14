@@ -1,5 +1,5 @@
 export const COLORS = {
-  primary: "#1C7EB5",
+  primary: "#F97316",
   body: "#333",
   secondary: "#0984e3",
   ternary: "#000",
@@ -12,6 +12,12 @@ export const COLORS = {
   black: "#333",
   red: "red",
   lightRed: "#e74c3c",
+  white: "#FFFFFF",
   yellow: "#f1c40f",
-  scrollTime:1500,
+
+
+  bgDark:"#1f2937",
+  inactiveDark: "#c8d6e5",
+  inactiveLight: "#6B7280",
+  scrollTime: 1500,
 };

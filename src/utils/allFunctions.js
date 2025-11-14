@@ -1,6 +1,11 @@
 import { Alert, Linking } from "react-native";
 import * as ImageManipulator from "expo-image-manipulator";
 import { UPLOAD_PARAMS } from "../styles/constants";
+import moment from "moment";
+import "moment/locale/fr";
+
+moment.locale("fr");
+
 
 const CURRENCY = "FCFA";
 
@@ -20,6 +25,14 @@ const CURRENCY = "FCFA";
 
 //   return result + " " + CURRENCY;
 // }
+
+const createUniqueUsername = (email) => {
+  const baseUsername = email.split("@")[0];
+  const randomSuffix = Math.floor(Math.random() * 1000)
+    .toString()
+    .padStart(3, "0");
+  return `${baseUsername}${randomSuffix}`;
+};
 
 function addSeparatorToNumber(number) {
   const separator = " ";
@@ -206,9 +219,23 @@ function shuffleArray(array) {
 
 function cleanString(input) {
   // Utilisation d'une expression régulière pour filtrer les caractères non souhaités
-  return input.replace(/[^a-zA-Z0-9]/g, '');
+  return input.replace(/[^a-zA-Z0-9]/g, "");
 }
 
+const getFormattedDate = (inputDate) => {
+  return moment(inputDate, "DD/MM/YYYY").format("dddd D MMMM");
+};
+
+// Fonction pour calculer la différence en jours entre aujourd'hui et une date donnée
+const getDaysDifference = (inputDate) => {
+  const today = moment(); // Date actuelle
+  const targetDate = moment(inputDate, "DD/MM/YYYY");
+  const daysDifference = targetDate.diff(today, "days");
+
+  return daysDifference >= 0
+    ? `dans ${daysDifference} jours`
+    : `il y a ${Math.abs(daysDifference)} jours`;
+};
 
 export {
   shuffleArray,
@@ -222,7 +249,11 @@ export {
   generateUniqueID,
   imageCompressor,
   formatNumber,
+  getFormattedDate,
+  getDaysDifference,
   formatPrice,
   isPriceValid,
-  removeSpaces,cleanString
+  createUniqueUsername,
+  removeSpaces,
+  cleanString,
 };

@@ -1,32 +1,37 @@
-import { View, Text, SafeAreaView } from "react-native";
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
-import BackButton from "../../components/Buttons/BackButton";
+import React, { useState, useLayoutEffect, useEffect } from "react";
 import {
-  DEFAULT_FLATLIST_SCROLLVIEW_BOTTOM_PADDING,
-  INPUT_CLASS,
-  INPUT_CLASS_BORDER_BOTTOM,
-} from "../../styles/constants";
-import PrimaryButton from "../../components/Buttons/PrimaryButton";
+  View,
+  Text,
+  TextInput,
+  SafeAreaView,
+  Alert,
+  Pressable,
+} from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
-import { TextInput, Alert } from "react-native";
-import { collection, getDocs, where, query } from "firebase/firestore";
-import { auth, db } from "../../../config/firebase";
-import { TouchableOpacity } from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
+import { auth } from "../../../config/firebase";
+import { sendPasswordResetEmail } from "@react-native-firebase/auth";
 import { emailRegex } from "../../utils/allFunctions";
-import { sendPasswordResetEmail } from "firebase/auth";
+import { COLORS } from "../../styles/colors";
+import PrimaryButton from "../../components/Buttons/PrimaryButton";
+import BackButton from "../../components/Buttons/BackButton";
 import { useTranslation } from "react-i18next";
+import i18n from "../../../i18n";
 
-export default function ForgotPassword({ navigation, route }) {
+export default function ForgotPassword() {
+  const navigation = useNavigation();
   const { t } = useTranslation();
-  const [isLoading, setIsLoading] = useState(false);
+
   const [email, setEmail] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
+  auth.languageCode = i18n.language || i18n.locale || "fr";
 
   useLayoutEffect(() => {
     navigation.setOptions({
       headerLeft: () => <BackButton onPress={navigation.goBack} />,
-      headerTitle: t("screens.forgotPassword.pageTitle"),
+      headerTitle: "",
     });
   }, [navigation]);
 
@@ -36,85 +41,106 @@ export default function ForgotPassword({ navigation, route }) {
       ?.setOptions({ tabBarStyle: { display: "none" }, tabBarVisible: false });
   }, [navigation]);
 
-  const validate = async () => {
-    if (email == "") {
+  const handleResetPassword = async () => {
+    if (email.trim() === "") {
       Alert.alert(
-        "Vous n'avez insérer aucune adresse e-mail valide",
-        "Veuillez donc insérer votre adresse e-mail"
+        "Adresse e-mail manquante",
+        "Veuillez entrer votre adresse e-mail"
       );
-      setIsLoading(false);
       return;
     }
 
     if (!emailRegex.test(email)) {
       Alert.alert(
-        "Votre adresse e-mail est invalide",
-        "Assurez-vous de bien vérifier l'orthographe"
+        "Adresse e-mail invalide",
+        "Merci de vérifier l’orthographe de votre e-mail."
       );
-      setIsLoading(false);
       return;
     }
-    setIsLoading(true);
-    const searchUserEmail = query(
-      collection(db, "users"),
-      where("email", "==", email)
-    );
 
+    setIsLoading(true);
     try {
       await sendPasswordResetEmail(auth, email);
       Alert.alert(
-        "Nous vous avons envoyé un e-mail de réinitialisation de mot de passe",
-        "Veuillez suivre les étapes qui y sont indiquées"
+        "E-mail envoyé ✅",
+        "Nous vous avons envoyé un e-mail pour réinitialiser votre mot de passe. Vérifiez vos spams si besoin."
       );
       navigation.goBack();
     } catch (error) {
-      if (error.code == "auth/user-not-found") {
+      if (error.code === "auth/user-not-found") {
         Alert.alert(
-          "Une erreur est survenue",
-          "Aucun utilisateur trouvé avec cette addresse e-mail."
+          "Utilisateur introuvable",
+          "Aucun compte n’est associé à cette adresse e-mail."
         );
-        setIsLoading(false);
-        return;
+      } else {
+        Alert.alert("Erreur", "Une erreur est survenue : " + error.message);
       }
-      Alert.alert("Une erreur est survenue", `${error}`);
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-white dark:bg-gray-900">
       <KeyboardAwareScrollView
-        className="px-4"
-        keyboardDismissMode="interactive"
+        keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
-        scrollEnabled
-        behavior="padding"
-        contentContainerStyle={{
-          paddingBottom: DEFAULT_FLATLIST_SCROLLVIEW_BOTTOM_PADDING,
-        }}
+        enableOnAndroid
+        extraHeight={200}
+        className="bg-white dark:bg-gray-900 px-6"
       >
-        <View className="">
-          {/* <PageSubTitle title={"Connectes-toi à ton compte"} /> */}
+        <View className="flex-1 pt-8">
+          <View className="mb-8">
+            <Text
+              style={{ fontFamily: "Inter_700Bold" }}
+              className="text-3xl font-bold text-gray-900 dark:text-white mb-2"
+            >
+              {t("mot_de_passe_oublié")}
+            </Text>
+          </View>
 
-          <View className="mt-5">
-            <TextInput
-              style={{ fontFamily: "Inter_500Medium" }}
-              className={INPUT_CLASS_BORDER_BOTTOM}
-              placeholder={t("inputs.email.placeholder")}
-              placeholderTextColor={"gray"}
-              value={email}
-              onChangeText={setEmail}
-            />
+          <View className="mb-6">
+            <View className="relative">
+              <TextInput
+                style={{
+                  fontFamily: "Inter_400Regular",
+                  height: 56,
+                }}
+                placeholder={t("adresse_email")}
+                placeholderTextColor="#9CA3AF"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                textContentType="emailAddress"
+                className="bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white text-lg rounded pl-12 pr-12 border border-gray-300 dark:border-gray-700"
+              />
+              <View className="absolute left-4 top-5">
+                <Ionicons name="mail-outline" size={24} color="#6B7280" />
+              </View>
+            </View>
           </View>
-          {/* login button */}
-          <View className="mt-10 w-full bg-white flex-1">
-            <PrimaryButton
-              text={t("screens.forgotPassword.btn")}
-              isLoading={isLoading}
-              onPress={validate}
-            />
-          </View>
+
+          <Pressable
+            style={{
+              backgroundColor: COLORS.primary,
+              opacity: isLoading || !email ? 0.5 : 1,
+            }} // Changez la couleur de fond ici
+            onPress={() => handleResetPassword()}
+            disabled={isLoading || !email}
+            className={`py-3 rounded flex-row items-center justify-center`}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <>
+                <Text className="text-white font-semibold text-lg mr-2">
+                  {i18n.t("suivant")}
+                </Text>
+              </>
+            )}
+          </Pressable>
         </View>
       </KeyboardAwareScrollView>
     </SafeAreaView>

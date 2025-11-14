@@ -1,12 +1,12 @@
-import { View, Text } from "react-native";
+import { View, Text, ActivityIndicator } from "react-native";
 import React, { useRef } from "react";
+import { COLORS } from "../styles/colors";
 
 
 export default function Loader() {
-  const animationRef = useRef(null)
   return (
     <View className="flex-1 bg-white items-center justify-center -mt-[40%]">
-    
+    <ActivityIndicator color={COLORS.primary} size={"small"} />
     </View>
   );
 }
