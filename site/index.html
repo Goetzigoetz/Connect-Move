@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title data-i18n="title">Connect & Move</title>
+  <style>
+    :root {
+      --bg-color: #ffffff;
+      --text-color: #333333;
+      --accent-color: #ff6600;
+    }
+    .dark-mode {
+      --bg-color: #222222;
+      --text-color: #dddddd;
+    }
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background-color: var(--accent-color);
+      padding: 1rem;
+      text-align: center;
+      color: #fff;
+    }
+    nav {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    nav a {
+      margin: 0 1rem;
+      color: #fff;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    .container {
+      padding: 2rem;
+      text-align: center;
+    }
+    .download-button {
+      background-color: var(--accent-color);
+      color: #fff;
+      padding: 1rem 2rem;
+      border: none;
+      border-radius: 5px;
+      font-size: 1.2rem;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .toggle-dark-mode {
+      position: fixed;
+      bottom: 1rem;
+      right: 1rem;
+      background-color: var(--accent-color);
+      color: #fff;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .lang-selector {
+      margin-left: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1 data-i18n="headerTitle">Connect & Move</h1>
+    <nav>
+      <a href="index.html" data-i18n="navHome">Accueil</a>
+      <a href="contacter.html" data-i18n="navVision">Contact</a>
+      <a href="termes.html" data-i18n="navTermes">CGU</a>
+      <a href="vie privee.html" data-i18n="navPrivacy">Confidentialité</a>
+      <a href="juridique.html" data-i18n="navLegal">Mentions Légales</a>
+      <select id="languageSelector" class="lang-selector" onchange="changeLanguage()">
+        <option value="fr" selected>Français</option>
+        <option value="en">English</option>
+        <option value="it">Italiano</option>
+      </select>
+    </nav>
+  </header>
+  <div class="container">
+    <h2 data-i18n="welcome">Bienvenue sur Connect & Move</h2>
+    <p data-i18n="description">Découvrez notre application qui vous connecte et vous fait bouger.</p>
+	<br>  
+<a class="download-button" href="#download" data-i18n="downloadButton">Télécharger l'application</a>
+  </div>
+  <button class="toggle-dark-mode" onclick="toggleDarkMode()" data-i18n="darkModeButton">Mode sombre</button>
+  <script>
+    const translations = {
+      fr: {
+        title: "Connect & Move",
+        headerTitle: "Connect & Move",
+        navHome: "Accueil",
+        navVision: "Contact",
+        navTerms: "CGU",
+        navPrivacy: "Confidentialité",
+        navLegal: "Mentions Légales",
+        welcome: "Bienvenue sur Connect & Move",
+        description: "Découvrez notre application qui vous connecte et vous fait bouger.",
+        downloadButton: "Télécharger l'application",
+        darkModeButton: "Mode sombre"
+      },
+      en: {
+        title: "Connect & Move",
+        headerTitle: "Connect & Move",
+        navHome: "Home",
+        navVision: "Contact",
+        navTerms: "Terms of Use",
+        navPrivacy: "Privacy Policy",
+        navLegal: "Legal Notice",
+        welcome: "Welcome to Connect & Move",
+        description: "Discover our app that connects you and keeps you moving.",
+        downloadButton: "Download the app",
+        darkModeButton: "Dark Mode"
+      },
+      it: {
+        title: "Connect & Move",
+        headerTitle: "Connect & Move",
+        navHome: "Home",
+        navVision: "Contatto",
+        navTerms: "Termini d'Uso",
+        navPrivacy: "Politica sulla Privacy",
+        navLegal: "Note Legali",
+        welcome: "Benvenuto in Connect & Move",
+        description: "Scopri la nostra app che ti connette e ti fa muovere.",
+        downloadButton: "Scarica l'app",
+        darkModeButton: "Modalità scura"
+      }
+    };
+
+    function changeLanguage() {
+      const lang = document.getElementById("languageSelector").value;
+      document.documentElement.lang = lang;
+      document.title = translations[lang].title;
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (translations[lang][key]) {
+          el.textContent = translations[lang][key];
+        }
+      });
+    }
+
+    function toggleDarkMode() {
+      document.body.classList.toggle('dark-mode');
+    }
+  </script>
+</body>
+</html>

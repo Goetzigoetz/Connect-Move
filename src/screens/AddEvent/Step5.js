@@ -6,29 +6,35 @@ import {
   Image,
   Alert,
   FlatList,
+  StyleSheet,
+  ActivityIndicator,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import moment from "moment";
 import { COLORS } from "../../styles/colors";
+import Animated, { FadeInUp } from "react-native-reanimated";
 import { showMessage } from "react-native-flash-message";
 import * as ImageManipulator from "expo-image-manipulator";
 import updateUserCoins from "../../utils/updateUserCoins";
 import i18n from "../../../i18n";
 import { auth, db, storage } from "../../../config/firebase";
+import { useThemeContext } from "../../ThemeProvider";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import {
   collection,
   addDoc,
   doc,
   getDoc,
-  setDoc,
-  updateDoc,
   serverTimestamp,
 } from "@react-native-firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "@react-native-firebase/storage";
 
-const Step5 = ({ previousData, onComplete, onPrevious, userSUB }) => {
-  const [images, setImages] = useState([]);
+const Step5 = ({ previousData, onComplete, onPrevious, userSUB, initialData }) => {
+  const { isDarkMode } = useThemeContext();
+
+  const [images, setImages] = useState(initialData?.images || []);
   const [uploading, setUploading] = useState(false);
 
   // Fonction pour demander l'autorisation et sélectionner des images
@@ -39,7 +45,6 @@ const Step5 = ({ previousData, onComplete, onPrevious, userSUB }) => {
         description: "Vous ne pouvez ajouter que 4 images.",
         type: "warning",
       });
-
       return;
     }
 
@@ -52,7 +57,6 @@ const Step5 = ({ previousData, onComplete, onPrevious, userSUB }) => {
           "Vous devez autoriser l'accès à votre galerie pour sélectionner des images.",
         type: "warning",
       });
-
       return;
     }
 
@@ -60,64 +64,67 @@ const Step5 = ({ previousData, onComplete, onPrevious, userSUB }) => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 0.8,
+      allowsMultipleSelection: false,
     });
 
     // Vérifier si une image a été sélectionnée
     if (!result.canceled && result.assets && result.assets.length > 0) {
       setImages((prev) =>
         [...prev, ...result.assets.map((asset) => asset.uri)].slice(0, 4)
-      ); // Limiter à 4 images
+      );
     }
   };
 
- const uploadImages = async () => {
-  console.log(images)
-  if (!images || !Array.isArray(images)) {
-    throw new Error("Le paramètre 'images' doit être un tableau défini");
-  }
+  // Fonction pour supprimer une image
+  const removeImage = (index) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+  };
 
-  try {
-    setUploading(true);
+  const uploadImages = async () => {
+    if (!images || !Array.isArray(images)) {
+      throw new Error("Le paramètre 'images' doit être un tableau défini");
+    }
 
-    const uploadPromises = images.map(async (imageUri) => {
-      const compressedImage = await ImageManipulator.manipulateAsync(
-        imageUri,
-        [{ resize: { width: 800 } }],
-        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
-      );
-      console.log(compressedImage)
+    try {
+      setUploading(true);
 
-      const response = await fetch(compressedImage.uri);
-      const blob = await response.blob();
-
-      const filename = compressedImage.uri.split("/").pop();
-      const storageRef = ref(storage, `activities/${filename}`);
-
-      const uploadTask = uploadBytesResumable(storageRef, blob);
-
-      await new Promise((resolve, reject) => {
-        uploadTask.on(
-          "state_changed",
-          () => {},
-          (error) => reject(error),
-          () => resolve()
+      const uploadPromises = images.map(async (imageUri) => {
+        const compressedImage = await ImageManipulator.manipulateAsync(
+          imageUri,
+          [{ resize: { width: 800 } }],
+          { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
         );
+
+        const response = await fetch(compressedImage.uri);
+        const blob = await response.blob();
+
+        const filename = compressedImage.uri.split("/").pop();
+        const storageRef = ref(storage, `activities/${filename}`);
+
+        const uploadTask = uploadBytesResumable(storageRef, blob);
+
+        await new Promise((resolve, reject) => {
+          uploadTask.on(
+            "state_changed",
+            () => {},
+            (error) => reject(error),
+            () => resolve()
+          );
+        });
+
+        const url = await getDownloadURL(storageRef);
+        return url;
       });
 
-      const url = await getDownloadURL(storageRef);
-      return url;
-    });
-
-    const urls = await Promise.all(uploadPromises);
-    setUploading(false);
-    return urls;
-  } catch (error) {
-    setUploading(false);
-    console.error("Erreur lors de l'upload des images :", error);
-    throw error;
-  }
-};
-
+      const urls = await Promise.all(uploadPromises);
+      setUploading(false);
+      return urls;
+    } catch (error) {
+      setUploading(false);
+      console.error("Erreur lors de l'upload des images :", error);
+      throw error;
+    }
+  };
 
   // Fonction pour publier dans Firestore
   const publishActivity = async () => {
@@ -129,17 +136,13 @@ const Step5 = ({ previousData, onComplete, onPrevious, userSUB }) => {
           [
             {
               text: "Non",
-              onPress: () => {
-                console.log("L'utilisateur a choisi de ne pas continuer.");
-                return;
-              },
+              onPress: () => {},
               style: "cancel",
             },
             {
               text: "Oui",
               onPress: async () => {
-                console.log("L'utilisateur a choisi de continuer sans image.");
-                await handlePublish(); // Appel à une fonction pour gérer la publication
+                await handlePublish();
               },
             },
           ]
@@ -147,7 +150,6 @@ const Step5 = ({ previousData, onComplete, onPrevious, userSUB }) => {
         return;
       }
 
-      // Si des images existent, continuez directement
       await handlePublish();
     } catch (error) {
       console.error("Erreur lors de la publication de l'activité :", error);
@@ -224,80 +226,312 @@ const Step5 = ({ previousData, onComplete, onPrevious, userSUB }) => {
 
   return (
     <KeyboardAwareScrollView
+      contentContainerStyle={styles.scrollContent}
       keyboardDismissMode="interactive"
       keyboardShouldPersistTaps="handled"
-      scrollEnabled
-      contentContainerStyle={{ flexGrow: 1 }}
-      enableOnAndroid={true}
       extraHeight={150}
-      contentContainerClassName="px-7 py-10 pb-32 bg-white dark:bg-gray-900"
       showsVerticalScrollIndicator={false}
+      style={{ backgroundColor: isDarkMode ? COLORS.bgDark : "#FFFFFF" }}
     >
-      <Text
-        className="text-2xl text-gray-900 dark:text-white"
-        style={{
-          fontFamily: "Inter_500Medium",
-        }}
-      >
-        {i18n.t("ajoutez_des_photos")}
-      </Text>
-      <Text
-        className="mt-2 text-lg text-gray-500 dark:text-gray-400 mb-8"
-        style={{
-          fontFamily: "Inter_400Regular",
-        }}
-      >
-        {i18n.t(
-          "mettez_des_images_qui_donneront_envie_de_vous_rejoindre_dans_votre_aventure"
-        )}
-      </Text>
-      {/* Liste des images sélectionnées */}
-      <FlatList
-        data={images}
-        horizontal
-        keyExtractor={(item, index) => index.toString()}
-        renderItem={({ item }) => (
-          <Image
-            source={{ uri: item }}
-            className="w-[45vw] h-[45vw] rounded mr-3 border border-gray-300 dark:border-gray-700"
-            resizeMode="cover"
-          />
-        )}
-        className="mb-4"
-        showsHorizontalScrollIndicator={false}
-      />
-      {/* Bouton pour sélectionner des images */}
-      <TouchableOpacity
-        onPress={selectImage}
-        className="bg-blue-500 dark:bg-blue-600 py-3 px-6 rounded"
-      >
-        <Text
-          className="text-white text-center text-base"
-          style={{ fontFamily: "Inter_400Regular" }}
+      <Animated.View entering={FadeInUp.duration(400)} style={styles.container}>
+        {/* Titre principal */}
+        <View style={styles.headerSection}>
+          <Text
+            style={[
+              styles.mainTitle,
+              { color: isDarkMode ? "#FFFFFF" : "#1F2937" },
+            ]}
+          >
+            {i18n.t("ajoutez_des_photos")}
+          </Text>
+          <Text
+            style={[
+              styles.mainSubtitle,
+              { color: isDarkMode ? "#6B7280" : "#9CA3AF" },
+            ]}
+          >
+            {i18n.t(
+              "mettez_des_images_qui_donneront_envie_de_vous_rejoindre_dans_votre_aventure"
+            )}
+          </Text>
+        </View>
+
+        {/* Section Images */}
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: isDarkMode ? COLORS.bgDarkSecondary : "#FFFFFF",
+              borderColor: isDarkMode ? "#2F3336" : "#E5E7EB",
+            },
+          ]}
         >
-          Ajouter une image ({images.length}/4)
-        </Text>
-      </TouchableOpacity>
-      {/* Bouton Suivant */}
-      <TouchableOpacity
-        disabled={uploading}
-        style={{
-          backgroundColor: COLORS.primary,
-          opacity: uploading ? 0.1 : 1,
-        }}
-        onPress={publishActivity}
-        activeOpacity={0.8}
-        className="py-3 mt-5 rounded"
-      >
-        <Text
-          className="text-white text-center text-base"
-          style={{ fontFamily: "Inter_400Regular" }}
+          <View style={styles.cardHeader}>
+            <View style={styles.iconCircle}>
+              <Ionicons name="images-outline" size={24} color={COLORS.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text
+                style={[
+                  styles.cardTitle,
+                  { color: isDarkMode ? "#FFFFFF" : "#1F2937" },
+                ]}
+              >
+                Photos ({images.length}/4)
+              </Text>
+              <Text
+                style={[
+                  styles.cardSubtitle,
+                  { color: isDarkMode ? "#9CA3AF" : "#6B7280" },
+                ]}
+              >
+                Ajoutez jusqu'à 4 photos pour illustrer votre événement
+              </Text>
+            </View>
+          </View>
+
+          {/* Grille d'images */}
+          {images.length > 0 && (
+            <View style={styles.imagesGrid}>
+              {images.map((uri, index) => (
+                <View key={index} style={styles.imageContainer}>
+                  <Image source={{ uri }} style={styles.image} resizeMode="cover" />
+                  <TouchableOpacity
+                    style={styles.removeButton}
+                    onPress={() => removeImage(index)}
+                    activeOpacity={0.8}
+                  >
+                    <LinearGradient
+                      colors={["rgba(0,0,0,0.6)", "rgba(0,0,0,0.4)"]}
+                      style={styles.removeButtonGradient}
+                    >
+                      <Ionicons name="close" size={16} color="#FFFFFF" />
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* Bouton d'ajout */}
+          {images.length < 4 && (
+            <TouchableOpacity
+              onPress={selectImage}
+              activeOpacity={0.7}
+              style={[
+                styles.addImageButton,
+                {
+                  backgroundColor: isDarkMode ? COLORS.bgDarkTertiary : "#F9FAFB",
+                  borderColor: isDarkMode ? "#2F3336" : "#D1D5DB",
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.addImageIcon,
+                  { backgroundColor: `${COLORS.primary}15` },
+                ]}
+              >
+                <Ionicons name="add" size={28} color={COLORS.primary} />
+              </View>
+              <Text
+                style={[
+                  styles.addImageText,
+                  { color: isDarkMode ? "#FFFFFF" : "#1F2937" },
+                ]}
+              >
+                Ajouter une photo
+              </Text>
+              <Text
+                style={[
+                  styles.addImageSubtext,
+                  { color: isDarkMode ? "#6B7280" : "#9CA3AF" },
+                ]}
+              >
+                {4 - images.length} restante{4 - images.length > 1 ? "s" : ""}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Bouton Publier */}
+        <TouchableOpacity
+          style={[styles.publishButton, uploading && { opacity: 0.5 }]}
+          onPress={publishActivity}
+          activeOpacity={0.85}
+          disabled={uploading}
         >
-          {uploading ? "Publication..." : "Publier"}
-        </Text>
-      </TouchableOpacity>
+          <LinearGradient
+            colors={[COLORS.primary, `${COLORS.primary}DD`]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.publishButtonGradient}
+          >
+            {uploading ? (
+              <>
+                <ActivityIndicator size="small" color="#FFFFFF" />
+                <Text style={[styles.publishButtonText, { marginLeft: 8 }]}>
+                  Publication en cours...
+                </Text>
+              </>
+            ) : (
+              <>
+                <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+                <Text style={[styles.publishButtonText, { marginLeft: 8 }]}>
+                  Publier l'événement
+                </Text>
+              </>
+            )}
+          </LinearGradient>
+        </TouchableOpacity>
+      </Animated.View>
     </KeyboardAwareScrollView>
   );
 };
+
+const styles = StyleSheet.create({
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 100,
+  },
+  container: {
+    padding: 20,
+    paddingBottom: 100,
+    gap: 20,
+  },
+  headerSection: {
+    marginBottom: 8,
+  },
+  mainTitle: {
+    fontSize: 28,
+    fontFamily: "Inter_700Bold",
+    marginBottom: 8,
+    letterSpacing: -0.5,
+  },
+  mainSubtitle: {
+    fontSize: 15,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 22,
+  },
+  card: {
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 20,
+    gap: 14,
+  },
+  iconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: `${COLORS.primary}15`,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  cardTitle: {
+    fontSize: 20,
+    fontFamily: "Inter_700Bold",
+    marginBottom: 6,
+    letterSpacing: -0.3,
+  },
+  cardSubtitle: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 20,
+    opacity: 0.8,
+  },
+  imagesGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    marginBottom: 16,
+  },
+  imageContainer: {
+    width: "47%",
+    aspectRatio: 1,
+    borderRadius: 12,
+    overflow: "hidden",
+    position: "relative",
+  },
+  image: {
+    width: "100%",
+    height: "100%",
+  },
+  removeButton: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  removeButtonGradient: {
+    width: 24,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  addImageButton: {
+    borderRadius: 12,
+    borderWidth: 2,
+    borderStyle: "dashed",
+    padding: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  addImageIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+  addImageText: {
+    fontSize: 16,
+    fontFamily: "Inter_600SemiBold",
+  },
+  addImageSubtext: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+  },
+  publishButton: {
+    marginTop: 12,
+    borderRadius: 9999,
+    overflow: "hidden",
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  publishButtonGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 18,
+    paddingHorizontal: 32,
+  },
+  publishButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 0.2,
+  },
+});
 
 export default Step5;

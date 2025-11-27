@@ -9,13 +9,12 @@ import {
   StyleSheet,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useColorScheme } from "nativewind";
+import { useThemeContext } from "../ThemeProvider";
 import { LinearGradient } from "expo-linear-gradient";
 import { COLORS } from "../styles/colors";
 
 const NotificationPermissionScreen = ({ navigation, onDone }) => {
-  const { colorScheme } = useColorScheme();
-  const isDarkMode = colorScheme === "dark";
+  const { isDarkMode } = useThemeContext();
   const [granted, setGranted] = useState(false);
 
   const handlePermission = async () => {
@@ -44,7 +43,7 @@ const NotificationPermissionScreen = ({ navigation, onDone }) => {
     <View
       style={[
         styles.container,
-        { backgroundColor: isDarkMode ? "#18181B" : "#fff" },
+        { backgroundColor: isDarkMode ? COLORS.bgDarkSecondary : "#fff" },
       ]}
     >
       <LinearGradient

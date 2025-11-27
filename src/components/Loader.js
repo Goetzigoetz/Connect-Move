@@ -1,12 +1,22 @@
-import { View, Text, ActivityIndicator } from "react-native";
-import React, { useRef } from "react";
+import { View, ActivityIndicator } from "react-native";
+import React from "react";
 import { COLORS } from "../styles/colors";
-
+import { useThemeContext } from "../ThemeProvider";
 
 export default function Loader() {
+  const { isDarkMode } = useThemeContext();
+
   return (
-    <View className="flex-1 bg-white items-center justify-center -mt-[40%]">
-    <ActivityIndicator color={COLORS.primary} size={"small"} />
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: isDarkMode ? COLORS.bgDark : "#FFFFFF",
+        alignItems: "center",
+        justifyContent: "center",
+        marginTop: "-40%",
+      }}
+    >
+      <ActivityIndicator color={COLORS.primary} size={"small"} />
     </View>
   );
 }

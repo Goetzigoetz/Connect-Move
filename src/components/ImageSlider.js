@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import {
   View,
   Dimensions,
@@ -16,18 +16,17 @@ const ImageSlider = ({ images }) => {
   const [activeIndex, setActiveIndex] = React.useState(0);
 
   return (
-    <View style={{ width: width, height: width * 0.3 }}>
+    <View style={{ width: width, height: "100%", position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
       <Carousel
         width={width}
-        height={width * 0.3}
+        height={400}
         data={images}
         renderItem={({ item }) => (
           <Animated.View
             entering={FadeInUp.duration(400)}
-            className="flex-1 bg-white dark:bg-gray-900"
+            style={{ flex: 1 }}
           >
             <Image
-              className=""
               source={{ uri: item }}
               style={{ width: "100%", height: "100%" }}
               resizeMode="cover"
@@ -40,24 +39,28 @@ const ImageSlider = ({ images }) => {
         )}
         loop
         autoPlay={images.length > 1}
-        autoPlayInterval={2500}
+        autoPlayInterval={3500}
         onSnapToItem={(index) => setActiveIndex(index)}
       />
-      {/* <View style={styles.blurViewContainer}>
-        <BlurView intensity={20} tint="dark" style={styles.paginationContainer}>
-          <View style={styles.pagination}>
-            {images.map((_, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.paginationDot,
-                  index === activeIndex && styles.paginationDotActive,
-                ]}
-              />
-            ))}
-          </View>
-        </BlurView>
-      </View> */}
+
+      {/* Pagination dots */}
+      {images.length > 1 && (
+        <View style={styles.blurViewContainer}>
+          <BlurView intensity={20} tint="dark" style={styles.paginationContainer}>
+            <View style={styles.pagination}>
+              {images.map((_, index) => (
+                <View
+                  key={index}
+                  style={[
+                    styles.paginationDot,
+                    index === activeIndex && styles.paginationDotActive,
+                  ]}
+                />
+              ))}
+            </View>
+          </BlurView>
+        </View>
+      )}
     </View>
   );
 };

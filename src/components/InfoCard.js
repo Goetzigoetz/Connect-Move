@@ -1,147 +1,251 @@
-// InfoCard.js (ou à placer où vous préférez)
 import React from "react";
-import { View, Text, Pressable, Image } from "react-native";
-import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
-import Ionicons from "@expo/vector-icons/Ionicons"; // Assurez-vous d'avoir importé Ionicons
-import { useColorScheme } from "nativewind";
-
-// Définition des polices (si vous ne les avez pas déjà configurées dans Tailwind)
-const fonts = {
-  regular: "Inter_400Regular",
-  medium: "Inter_500Medium",
-};
-
-// Props attendues:
-// - isVisible: boolean (pour contrôler l'affichage et l'animation)
-// - iconSource: require(...)
-// - iconBgClass: string (ex: "bg-emerald-100 dark:bg-emerald-900")
-// - iconTintClass: string (ex: "tint-emerald-600 dark:tint-emerald-400") // Pour teinter l'icône si besoin
-// - iconSizeClass: string (ex: "w-10 h-10")
-// - cardBgClass: string (ex: "bg-emerald-100 dark:bg-gray-800")
-// - title: string (optionnel)
-// - titleClass: string (optionnel, ex: "text-gray-900 dark:text-white text-lg")
-// - description: string
-// - descriptionClass: string (ex: "text-gray-600 dark:text-gray-300")
-// - buttonText: string
-// - buttonBgClass: string (ex: "bg-emerald-500 dark:bg-orange-600")
-// - buttonTextColorClass: string (ex: "text-white")
-// - onButtonPress: function
-// - onClosePress: function (optionnel, pour le X)
-// - borderClass: string (optionnel, ex: "border border-gray-100 dark:border-gray-700")
+import { View, Text, Pressable, StyleSheet } from "react-native";
+import Animated, { FadeInDown } from "react-native-reanimated";
+import { LinearGradient } from "expo-linear-gradient";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { useThemeContext } from "../ThemeProvider";
+import { COLORS } from "../styles/colors";
 
 const InfoCard = ({
   isVisible,
-  iconSource,
-  iconBgClass = "p-3 rounded-full mr-4", // Default padding/margin
+  iconName = "gift",
+  iconBgClass,
   iconTintClass,
-  iconSizeClass = "w-12 h-12", // Standardized size
+  iconSizeClass = "w-12 h-12",
   cardBgClass,
   title,
-  titleClass = "text-gray-900 dark:text-white text-lg mb-1", // Default title style
+  titleClass,
   description,
-  descriptionClass = "text-gray-600 dark:text-gray-300 mb-3", // Default description style
+  descriptionClass,
   buttonText,
   buttonBgClass,
-  buttonTextColorClass = "text-white", // Default button text color
+  buttonTextColorClass = "text-white",
   onButtonPress,
   onClosePress,
-  borderClass = "", // Default no border
+  borderClass = "",
+  currentIndex = 0,
+  totalCards = 1,
+  onDotPress,
 }) => {
   if (!isVisible) {
-    return null; // Ne rend rien si ce n'est pas visible
+    return null;
   }
-  const { colorScheme } = useColorScheme();
-  const isDarkMode = colorScheme === "dark";
+
+  const { isDarkMode } = useThemeContext();
+
+  // Déterminer les couleurs du gradient basées sur le type de carte
+  const getGradientColors = () => {
+    if (buttonBgClass?.includes('emerald')) {
+      return ['#10B981', '#059669'];
+    } else if (buttonBgClass?.includes('yellow')) {
+      return ['#F59E0B', '#D97706'];
+    } else if (buttonBgClass?.includes('orange')) {
+      return ['#F97316', '#EA580C'];
+    } else if (buttonBgClass?.includes('blue')) {
+      return ['#3B82F6', '#2563EB'];
+    }
+    return ['#F97316', '#EA580C']; // Default
+  };
+
+  const gradientColors = getGradientColors();
+
   return (
     <Animated.View
-      // entering={FadeIn.duration(200)}
-      className={`
-    p-5 rounded-xl flex-row items-start mb-4 
-    ${cardBgClass} ${borderClass} shadow-lg
-  `}
-      style={{
-        shadowColor: "#000",
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        shadowOffset: { width: 0, height: 4 },
-        elevation: 5, // Android
-      }}
+      entering={FadeInDown.duration(350)}
+      style={styles.container}
     >
-      {/* Icône cercle avec légère ombre */}
-      <View
-        className={`${iconBgClass} mr-4 items-center justify-center rounded-full shadow-sm`}
-        style={{
-          width: 48,
-          height: 48,
-          shadowColor: "#000",
-          shadowOpacity: 0.08,
-          shadowRadius: 4,
-          shadowOffset: { width: 0, height: 2 },
-        }}
-      >
-        <Image
-          className={`${iconSizeClass} ${iconTintClass ?? ""}`}
-          source={iconSource}
-          resizeMode="contain"
-        />
-      </View>
+      <View style={[
+        styles.card,
+        {
+          backgroundColor: isDarkMode ? COLORS.bgDark : '#FFFFFF',
+        }
+      ]}>
+        {/* Barre de couleur subtile en haut */}
+        <View style={[styles.colorBar, { backgroundColor: gradientColors[0] }]} />
 
-      {/* Contenu */}
-      <View className="flex-1">
-        <View className="flex-row items-start justify-between">
-          {/* Titre */}
-          {title && (
-            <Text
-              style={{ fontFamily: "Inter_400Regular" }}
-              className={`flex-1 text-lg ${titleClass}`}
-            >
-              {title}
-            </Text>
-          )}
-          {/* Bouton fermer */}
-          {onClosePress && (
-            <Pressable
-              onPress={onClosePress}
-              hitSlop={10}
-              className="ml-2 p-1 rounded-full hover:opacity-80"
-            >
+        <View style={styles.cardContent}>
+          {/* Header - icône et close */}
+          <View style={styles.header}>
+            <View style={[
+              styles.iconWrapper,
+              { backgroundColor: `${gradientColors[0]}10` }
+            ]}>
               <Ionicons
-                color={isDarkMode ? "white" : "dark"}
-                name="close-outline"
-                size={22}
-                className="text-gray-500 dark:text-white"
+                name={iconName}
+                size={18}
+                color={gradientColors[0]}
               />
-            </Pressable>
-          )}
+            </View>
+
+            {onClosePress && (
+              <Pressable
+                onPress={onClosePress}
+                style={({ pressed }) => ({
+                  opacity: pressed ? 0.4 : 0.6,
+                })}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
+                <Ionicons
+                  name="close-circle"
+                  size={20}
+                  color={isDarkMode ? '#52525B' : '#A1A1AA'}
+                />
+              </Pressable>
+            )}
+          </View>
+
+          {/* Contenu */}
+          <View style={styles.textContent}>
+            {title && (
+              <Text
+                style={[
+                  styles.title,
+                  { color: isDarkMode ? '#FAFAFA' : '#18181B' }
+                ]}
+                numberOfLines={1}
+              >
+                {title}
+              </Text>
+            )}
+
+            {description && (
+              <Text
+                style={[
+                  styles.description,
+                  { color: isDarkMode ? '#A1A1AA' : '#71717A' }
+                ]}
+                numberOfLines={2}
+              >
+                {description}
+              </Text>
+            )}
+          </View>
+
+          {/* Actions */}
+          <View style={styles.actions}>
+            {onButtonPress && (
+              <Pressable
+                onPress={onButtonPress}
+                style={({ pressed }) => [
+                  styles.actionButton,
+                  {
+                    opacity: pressed ? 0.8 : 1,
+                    backgroundColor: gradientColors[0],
+                  }
+                ]}
+              >
+                <Text style={styles.actionButtonText}>{buttonText}</Text>
+              </Pressable>
+            )}
+
+            {/* Pagination */}
+            {totalCards > 1 && (
+              <View style={styles.paginationDots}>
+                {Array.from({ length: totalCards }).map((_, index) => (
+                  <Pressable
+                    key={index}
+                    onPress={() => onDotPress?.(index)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <View
+                      style={[
+                        styles.dot,
+                        {
+                          backgroundColor: index === currentIndex
+                            ? gradientColors[0]
+                            : isDarkMode ? '#3F3F46' : '#E4E4E7',
+                          width: index === currentIndex ? 16 : 5,
+                        }
+                      ]}
+                    />
+                  </Pressable>
+                ))}
+              </View>
+            )}
+          </View>
         </View>
-
-        {/* Description */}
-        {description && (
-          <Text
-            style={{ fontFamily: "Inter_400Regular" }}
-            className={`mt-1 leading-5 text-gray-600 dark:text-gray-300 ${descriptionClass}`}
-          >
-            {description}
-          </Text>
-        )}
-
-        {/* Bouton */}
-        {onButtonPress && (
-          <Pressable
-            onPress={onButtonPress}
-            className={`mt-3 py-2 px-4 rounded-full self-start ${buttonBgClass}`}
-          >
-            <Text
-              style={{ fontFamily: "Inter_500Medium" }}
-              className={`text-sm ${buttonTextColorClass}`}
-            >
-              {buttonText}
-            </Text>
-          </Pressable>
-        )}
       </View>
     </Animated.View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    marginBottom: 16,
+    marginHorizontal: 16,
+  },
+  card: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  colorBar: {
+    height: 3,
+    width: '100%',
+  },
+  cardContent: {
+    padding: 16,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  iconWrapper: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  textContent: {
+    marginBottom: 14,
+  },
+  title: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 14,
+    letterSpacing: -0.3,
+    marginBottom: 6,
+    lineHeight: 18,
+  },
+  description: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 13,
+    lineHeight: 19,
+    letterSpacing: -0.2,
+  },
+  actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  actionButton: {
+    paddingVertical: 9,
+    paddingHorizontal: 18,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionButtonText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 13,
+    color: '#FFFFFF',
+    letterSpacing: -0.2,
+  },
+  paginationDots: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  dot: {
+    height: 5,
+    borderRadius: 2.5,
+  },
+});
 
 export default InfoCard;

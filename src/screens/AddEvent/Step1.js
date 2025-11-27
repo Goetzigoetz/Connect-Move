@@ -1,25 +1,33 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, TextInput, Alert, TouchableOpacity } from "react-native";
-import { Slider } from "react-native-elements";
+import React, { useState, useRef, useEffect } from "react";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { COLORS } from "../../styles/colors";
-import Animated, {
-  FadeInDown,
-  FadeInRight,
-  FadeInUp,
-} from "react-native-reanimated";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import Animated, { FadeInUp } from "react-native-reanimated";
 import { showMessage } from "react-native-flash-message";
 import i18n from "../../../i18n";
+import { useThemeContext } from "../../ThemeProvider";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 
-const Step1 = ({ userSUB, onNext }) => {
-  console.log("userSUB", userSUB);
-  const [price, setPrice] = useState("0");
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [maxParticipants, setMaxParticipants] = useState(2);
-  const allowedParticipants = userSUB == "pro" ? 20 : 5;
+const Step1 = ({ userSUB, onNext, initialData }) => {
+  const { isDarkMode } = useThemeContext();
+
+  const [price, setPrice] = useState(initialData?.price?.toString() || "0");
+  const [title, setTitle] = useState(initialData?.title || "");
+  const [description, setDescription] = useState(initialData?.description || "");
+  const [maxParticipants, setMaxParticipants] = useState(initialData?.maxParticipants || 2);
+  const allowedParticipants = userSUB === "pro" ? 20 : 5;
   const [errors, setErrors] = useState({});
+  const [focusedField, setFocusedField] = useState(null);
+
+  const titleInputRef = useRef(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      titleInputRef.current?.focus();
+    }, 400);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleValidation = () => {
     let valid = true;
@@ -27,16 +35,15 @@ const Step1 = ({ userSUB, onNext }) => {
 
     if (!title.trim()) {
       valid = false;
-      tempErrors.title = "Le titre est obligatoire.";
+      tempErrors.title = i18n.t("titre_obligatoire");
     }
     if (!description.trim()) {
       valid = false;
-      tempErrors.description = "La description est obligatoire.";
+      tempErrors.description = i18n.t("description_obligatoire");
     }
     if (maxParticipants < 2 || maxParticipants > 20) {
       valid = false;
-      tempErrors.maxParticipants =
-        "Le nombre de participants doit être compris entre 2 et 20.";
+      tempErrors.maxParticipants = i18n.t("nombre_participants_entre_2_et_20");
     }
 
     setErrors(tempErrors);
@@ -48,8 +55,8 @@ const Step1 = ({ userSUB, onNext }) => {
       onNext({ price, title, description, maxParticipants });
     } else {
       showMessage({
-        message: "Erreur",
-        description: "Veuillez corriger les erreurs avant de continuer.",
+        message: i18n.t("erreur"),
+        description: i18n.t("veuillez_corriger_erreurs_avant_continuer"),
         type: "warning",
       });
     }
@@ -57,62 +64,310 @@ const Step1 = ({ userSUB, onNext }) => {
 
   return (
     <KeyboardAwareScrollView
-      contentContainerClassName="px-7 py-10 pb-32 bg-white dark:bg-gray-900"
-      contentContainerStyle={{ flexGrow: 1 }}
+      contentContainerStyle={styles.scrollContent}
       keyboardDismissMode="interactive"
       keyboardShouldPersistTaps="handled"
       extraHeight={150}
       showsVerticalScrollIndicator={false}
+      style={{ backgroundColor: isDarkMode ? COLORS.bgDark : "#FFFFFF" }}
     >
-      <Animated.View entering={FadeInUp.duration(400)} className="space-y-8">
-        <Text
-          style={{ fontFamily: "Inter_500Medium" }}
-          className="text-2xl mb-5 text-gray-900 dark:text-white"
-        >
-          {i18n.t("creer_un_evenement")}
-        </Text>
-        {/* Champ Prix */}
-        {userSUB == "pro" && (
-          <View className="mt-4">
-            <View className="relative">
-              <Text
-                style={{ fontFamily: "Inter_500Medium" }}
-                className="text-xl mb-2 text-gray-900 dark:text-white"
-              >
-                {i18n.t("adhesion")}
-              </Text>
+      <Animated.View entering={FadeInUp.duration(400)} style={styles.container}>
+        {/* Titre principal */}
+        <View style={styles.headerSection}>
+          <Text
+            style={[
+              styles.mainTitle,
+              { color: isDarkMode ? "#FFFFFF" : "#1F2937" },
+            ]}
+          >
+            {i18n.t("creer_un_evenement")}
+          </Text>
+          <Text
+            style={[
+              styles.mainSubtitle,
+              { color: isDarkMode ? "#6B7280" : "#9CA3AF" },
+            ]}
+          >
+            {i18n.t("donner_envie_de_ne_pas_rater_evenement")}
+          </Text>
+        </View>
 
-              {/* Badge Nouveauté */}
-              <View className="absolute -right-0 transform -rotate-10 bg-green-500 px-2 py-1 rounded-full">
+        {/* Section Titre et Description */}
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: isDarkMode ? COLORS.bgDarkSecondary : "#FFFFFF",
+              borderColor: isDarkMode ? "#2F3336" : "#E5E7EB",
+            },
+          ]}
+        >
+          <View style={styles.cardHeader}>
+            <View style={styles.iconCircle}>
+              <Ionicons name="create-outline" size={24} color={COLORS.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text
+                style={[
+                  styles.cardTitle,
+                  { color: isDarkMode ? "#FFFFFF" : "#1F2937" },
+                ]}
+              >
+                {i18n.t("details")}
+              </Text>
+              <Text
+                style={[
+                  styles.cardSubtitle,
+                  { color: isDarkMode ? "#9CA3AF" : "#6B7280" },
+                ]}
+              >
+                {i18n.t("donner_envie_de_ne_pas_rater_evenement")}
+              </Text>
+            </View>
+          </View>
+
+          {/* Champ Titre */}
+          <View style={styles.inputContainer}>
+            <Text
+              style={[
+                styles.inputLabel,
+                { color: isDarkMode ? "#9CA3AF" : "#6B7280" },
+              ]}
+            >
+              {i18n.t("titre")} *
+            </Text>
+            <View
+              style={[
+                styles.inputWrapper,
+                {
+                  borderColor: errors.title
+                    ? "#EF4444"
+                    : focusedField === "title"
+                    ? COLORS.primary
+                    : isDarkMode
+                    ? "#1F2937"
+                    : "#D1D5DB",
+                  backgroundColor: isDarkMode ? COLORS.bgDarkTertiary : "#FFFFFF",
+                },
+              ]}
+            >
+              <TextInput
+                ref={titleInputRef}
+                style={[
+                  styles.textInput,
+                  { color: isDarkMode ? "#FFFFFF" : "#111827" },
+                ]}
+                placeholder={i18n.t("exemple_gravir_everest")}
+                placeholderTextColor={isDarkMode ? "#6B7280" : "#9CA3AF"}
+                value={title}
+                onChangeText={(text) => {
+                  setTitle(text);
+                  setErrors((prev) => ({ ...prev, title: "" }));
+                }}
+                onFocus={() => setFocusedField("title")}
+                onBlur={() => setFocusedField(null)}
+              />
+            </View>
+            {errors.title && (
+              <Text style={styles.errorText}>{errors.title}</Text>
+            )}
+          </View>
+
+          {/* Champ Description */}
+          <View style={styles.inputContainer}>
+            <Text
+              style={[
+                styles.inputLabel,
+                { color: isDarkMode ? "#9CA3AF" : "#6B7280" },
+              ]}
+            >
+              {i18n.t("description")} *
+            </Text>
+            <View
+              style={[
+                styles.inputWrapper,
+                styles.textAreaWrapper,
+                {
+                  borderColor: errors.description
+                    ? "#EF4444"
+                    : focusedField === "description"
+                    ? COLORS.primary
+                    : isDarkMode
+                    ? "#1F2937"
+                    : "#D1D5DB",
+                  backgroundColor: isDarkMode ? COLORS.bgDarkTertiary : "#FFFFFF",
+                },
+              ]}
+            >
+              <TextInput
+                style={[
+                  styles.textInput,
+                  styles.textArea,
+                  { color: isDarkMode ? "#FFFFFF" : "#111827" },
+                ]}
+                placeholder={i18n.t("donnez_plus_de_details")}
+                placeholderTextColor={isDarkMode ? "#6B7280" : "#9CA3AF"}
+                value={description}
+                onChangeText={(text) => {
+                  setDescription(text);
+                  setErrors((prev) => ({ ...prev, description: "" }));
+                }}
+                onFocus={() => setFocusedField("description")}
+                onBlur={() => setFocusedField(null)}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+              />
+            </View>
+            {errors.description && (
+              <Text style={styles.errorText}>{errors.description}</Text>
+            )}
+          </View>
+        </View>
+
+        {/* Section Participants */}
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: isDarkMode ? COLORS.bgDarkSecondary : "#FFFFFF",
+              borderColor: isDarkMode ? "#2F3336" : "#E5E7EB",
+            },
+          ]}
+        >
+          <View style={styles.cardHeader}>
+            <View style={styles.iconCircle}>
+              <Ionicons name="people-outline" size={24} color={COLORS.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text
+                style={[
+                  styles.cardTitle,
+                  { color: isDarkMode ? "#FFFFFF" : "#1F2937" },
+                ]}
+              >
+                {i18n.t("participants")}
+              </Text>
+              <Text
+                style={[
+                  styles.cardSubtitle,
+                  { color: isDarkMode ? "#9CA3AF" : "#6B7280" },
+                ]}
+              >
+                {i18n.t("nombre_participants_max_dont_vous", { max: allowedParticipants })}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.participantControls}>
+            <View style={styles.participantDisplay}>
+              <TouchableOpacity
+                style={[
+                  styles.controlButton,
+                  {
+                    backgroundColor: isDarkMode ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)",
+                    opacity: maxParticipants <= 2 ? 0.3 : 1,
+                  },
+                ]}
+                onPress={() => {
+                  if (maxParticipants > 2) {
+                    setMaxParticipants(maxParticipants - 1);
+                    setErrors((prev) => ({ ...prev, maxParticipants: "" }));
+                  }
+                }}
+                disabled={maxParticipants <= 2}
+                activeOpacity={0.6}
+              >
+                <Ionicons
+                  name="remove"
+                  size={20}
+                  color={isDarkMode ? "#FFFFFF" : "#1F2937"}
+                />
+              </TouchableOpacity>
+
+              <View style={styles.countWrapper}>
+                <Text style={styles.participantCount}>
+                  {maxParticipants}
+                </Text>
                 <Text
-                  style={{ fontFamily: "Inter_500Medium" }}
-                  className="text-xs text-white uppercase tracking-wider"
+                  style={[
+                    styles.participantLabel,
+                    { color: isDarkMode ? "#6B7280" : "#9CA3AF" },
+                  ]}
                 >
-                  {i18n.t("nouveaute")}
+                  personnes
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.controlButton,
+                  {
+                    backgroundColor: COLORS.primary,
+                    opacity: maxParticipants >= allowedParticipants ? 0.3 : 1,
+                  },
+                ]}
+                onPress={() => {
+                  if (maxParticipants < allowedParticipants) {
+                    setMaxParticipants(maxParticipants + 1);
+                    setErrors((prev) => ({ ...prev, maxParticipants: "" }));
+                  }
+                }}
+                disabled={maxParticipants >= allowedParticipants}
+                activeOpacity={0.6}
+              >
+                <Ionicons name="add" size={20} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+          </View>
+          {errors.maxParticipants && (
+            <Text style={styles.errorText}>{errors.maxParticipants}</Text>
+          )}
+        </View>
+
+        {/* Section Prix (Pro uniquement) */}
+        {userSUB === "pro" && (
+          <View
+            style={[
+              styles.card,
+              {
+                backgroundColor: isDarkMode ? COLORS.bgDarkSecondary : "#FFFFFF",
+                borderColor: isDarkMode ? "#2F3336" : "#E5E7EB",
+              },
+            ]}
+          >
+            <View style={styles.cardHeader}>
+              <View style={styles.iconCircle}>
+                <Ionicons name="cash-outline" size={24} color={COLORS.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={[
+                    styles.cardTitle,
+                    { color: isDarkMode ? "#FFFFFF" : "#1F2937" },
+                  ]}
+                >
+                  {i18n.t("adhesion")}
+                </Text>
+                <Text
+                  style={[
+                    styles.cardSubtitle,
+                    { color: isDarkMode ? "#9CA3AF" : "#6B7280" },
+                  ]}
+                >
+                  {i18n.t("mettez_le_cout_de_ladhesion_a_votre_evenement_en_euros_ou_laissez_a_0_si_lentree_est_libre")}
                 </Text>
               </View>
             </View>
 
-            <Text
-              style={{ fontFamily: "Inter_400Regular" }}
-              className="my-2 text-lg text-gray-500 dark:text-gray-400"
-            >
-              {i18n.t(
-                "mettez_le_cout_de_ladhesion_a_votre_evenement_en_euros_ou_laissez_a_0_si_lentree_est_libre"
-              )}
-            </Text>
-            <View
-              className="flex-row items-center justify-center p-5"
-              style={{
-                borderColor: errors.price ? "#f87171" : "#d1d5db",
-              }}
-            >
+            <View style={styles.priceInputContainer}>
               <TextInput
-                className="self-center w-full text-4xl text-gray-500"
-                style={{
-                  fontFamily: "Inter_500Medium",
-                  // color: price ? "#374151" : "gray",
-                }}
+                style={[
+                  styles.priceInput,
+                  {
+                    color: isDarkMode ? "#FFFFFF" : "#1F2937",
+                  },
+                ]}
                 placeholderTextColor="#9CA3AF"
                 keyboardType="numeric"
                 value={price}
@@ -120,172 +375,229 @@ const Step1 = ({ userSUB, onNext }) => {
                   setPrice(text);
                   setErrors((prev) => ({ ...prev, price: "" }));
                 }}
+                placeholder="0"
               />
               <Text
-                className="text-3xl text-gray-500"
-                style={{
-                  fontFamily: "Inter_500Medium",
-                  marginLeft: 4, // Espacement entre l'input et le symbole
-                }}
+                style={[
+                  styles.currencySymbol,
+                  { color: isDarkMode ? "#9CA3AF" : "#6B7280" },
+                ]}
               >
-                {i18n.t("€")}
+                €
               </Text>
             </View>
             {errors.price && (
-              <Text className="text-red-500 text-sm mt-1">{errors.price}</Text>
+              <Text style={styles.errorText}>{errors.price}</Text>
             )}
           </View>
         )}
 
-        {/* Slider Nombre de Participants */}
-        <View>
-          <Text
-            style={{
-              fontFamily: "Inter_500Medium",
-            }}
-            className="text-xl mb-2 text-gray-900 dark:text-white"
-          >
-            {i18n.t("participants")}
-          </Text>
-          <Text
-            style={{
-              fontFamily: "Inter_400Regular",
-            }}
-            className="text-lg text-gray-500 dark:text-gray-400 mb-4"
-          >
-            Le nombre de participants max est de {allowedParticipants} (dont
-            vous même)
-          </Text>
-
-          <Slider
-            style={{
-              fontFamily: "Inter_500Medium",
-            }}
-            value={maxParticipants}
-            onValueChange={(value) => {
-              setMaxParticipants(value);
-              setErrors((prev) => ({ ...prev, maxParticipants: "" }));
-            }}
-            minimumValue={2}
-            maximumValue={allowedParticipants}
-            step={1}
-            thumbTintColor={COLORS.primary}
-            thumbStyle={{
-              height: 25,
-              width: 25,
-              backgroundColor: COLORS.primary,
-            }}
-            minimumTrackTintColor={COLORS.primary}
-            maximumTrackTintColor="#d1d5db"
-          />
-          <Text
-            style={{
-              fontFamily: "Inter_500Medium",
-            }}
-            className="text-center text-base mt-2 text-gray-900 dark:text-white"
-          >
-            {maxParticipants}/{allowedParticipants}
-          </Text>
-          {errors.maxParticipants && (
-            <Text
-              style={{
-                fontFamily: "Inter_500Medium",
-              }}
-              className="text-red-500 text-sm mt-1"
-            >
-              {errors.maxParticipants}
-            </Text>
-          )}
-        </View>
-
-        {/* Titre et description */}
-        <View className="mt-7">
-          <Text
-            style={{ fontFamily: "Inter_500Medium" }}
-            className="text-xl mb-2 text-gray-900 dark:text-white"
-          >
-            {i18n.t("details")}
-          </Text>
-          <Text
-            style={{ fontFamily: "Inter_400Regular" }}
-            className="mt-2 text-lg text-gray-500 dark:text-gray-400"
-          >
-            {i18n.t("donner_envie_de_ne_pas_rater_evenement")}
-          </Text>
-        </View>
-
-        {/* Champ Titre */}
-        <View className="mt-4">
-          <TextInput
-            className="bg-gray-100 dark:bg-gray-800 rounded-t-lg px-4 py-3 text-lg text-gray-800 dark:text-white border-b"
-            style={{
-              fontFamily: "Inter_400Regular",
-              borderColor: errors.title ? "#f87171" : "#d1d5db",
-            }}
-            placeholder="Ex: Gravir l'Everest"
-            placeholderTextColor="#9CA3AF"
-            value={title}
-            onChangeText={(text) => {
-              setTitle(text);
-              setErrors((prev) => ({ ...prev, title: "" }));
-            }}
-          />
-          {errors.title && (
-            <Text className="text-red-500 text-sm mt-1">{errors.title}</Text>
-          )}
-        </View>
-
-        {/* Champ Description */}
-        <View className="mb-4 mt-5">
-          <TextInput
-            className="bg-gray-100 dark:bg-gray-800 rounded-b-lg px-4 py-3 text-lg text-gray-800 dark:text-white border-b h-24"
-            style={{
-              fontFamily: "Inter_500Medium",
-              borderColor: errors.description ? "#f87171" : "#d1d5db",
-              textAlignVertical: "top",
-            }}
-            placeholder="Donnez plus de détails"
-            placeholderTextColor="#9CA3AF"
-            value={description}
-            onChangeText={(text) => {
-              setDescription(text);
-              setErrors((prev) => ({ ...prev, description: "" }));
-            }}
-            multiline
-          />
-          {errors.description && (
-            <Text
-              style={{
-                fontFamily: "Inter_500Medium",
-              }}
-              className="text-red-500 text-sm mt-1"
-            >
-              {errors.description}
-            </Text>
-          )}
-        </View>
-
         {/* Bouton Suivant */}
         <TouchableOpacity
-          style={{
-            backgroundColor: COLORS.primary,
-          }}
+          style={styles.nextButton}
           onPress={handleNext}
-          activeOpacity={0.8}
-          className="py-3 rounded mt-8"
+          activeOpacity={0.85}
         >
-          <Text
-            style={{
-              fontFamily: "Inter_400Regular",
-            }}
-            className="text-white text-center text-base "
+          <LinearGradient
+            colors={[COLORS.primary, `${COLORS.primary}DD`]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.nextButtonGradient}
           >
-            {i18n.t("suivant")}
-          </Text>
+            <Text style={styles.nextButtonText}>{i18n.t("suivant")}</Text>
+          </LinearGradient>
         </TouchableOpacity>
       </Animated.View>
     </KeyboardAwareScrollView>
   );
 };
+
+const styles = StyleSheet.create({
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 100,
+  },
+  container: {
+    padding: 20,
+    paddingBottom: 100,
+    gap: 20,
+  },
+  headerSection: {
+    marginBottom: 8,
+  },
+  mainTitle: {
+    fontSize: 28,
+    fontFamily: "Inter_700Bold",
+    marginBottom: 8,
+    letterSpacing: -0.5,
+  },
+  mainSubtitle: {
+    fontSize: 15,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 22,
+  },
+  card: {
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 24,
+    gap: 14,
+  },
+  iconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: `${COLORS.primary}15`,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  cardTitle: {
+    fontSize: 20,
+    fontFamily: "Inter_700Bold",
+    marginBottom: 6,
+    letterSpacing: -0.3,
+  },
+  cardSubtitle: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 20,
+    opacity: 0.8,
+  },
+  priceInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 24,
+    paddingHorizontal: 20,
+    gap: 8,
+    borderRadius: 16,
+    backgroundColor: `${COLORS.primary}08`,
+    marginVertical: 8,
+  },
+  priceInput: {
+    fontSize: 56,
+    fontFamily: "Inter_800ExtraBold",
+    textAlign: "center",
+    minWidth: 120,
+    letterSpacing: -1,
+  },
+  currencySymbol: {
+    fontSize: 36,
+    fontFamily: "Inter_700Bold",
+  },
+  participantControls: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+  },
+  controlButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  participantDisplay: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+  },
+  countWrapper: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+  },
+  participantCount: {
+    fontSize: 40,
+    fontFamily: "Inter_800ExtraBold",
+    textAlign: "center",
+    letterSpacing: -1,
+    color: COLORS.primary,
+  },
+  participantLabel: {
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
+    marginTop: 2,
+  },
+  inputContainer: {
+    marginVertical: 10,
+  },
+  inputLabel: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: 0.3,
+    marginBottom: 10,
+    textTransform: "uppercase",
+  },
+  inputWrapper: {
+    borderRadius: 10,
+    borderWidth: 1.5,
+    overflow: "hidden",
+  },
+  textAreaWrapper: {
+    minHeight: 110,
+  },
+  textInput: {
+    fontSize: 15,
+    fontFamily: "Inter_500Medium",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    lineHeight: 20,
+  },
+  textArea: {
+    minHeight: 90,
+    paddingTop: 14,
+  },
+  errorText: {
+    color: "#EF4444",
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+    marginTop: 8,
+  },
+  nextButton: {
+    marginTop: 12,
+    borderRadius: 9999,
+    overflow: "hidden",
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  nextButtonGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+  },
+  nextButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 0.2,
+  },
+});
 
 export default Step1;

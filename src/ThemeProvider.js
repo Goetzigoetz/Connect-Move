@@ -1,38 +1,43 @@
-import React, { createContext, useContext, useMemo } from "react";
-import { useColorScheme } from "react-native";
+import React, { useMemo } from "react";
 import { StatusBar } from "expo-status-bar";
+import { ThemeContextProvider, useThemeContext } from "./contexts/ThemeContext";
+import { COLORS } from "./styles/colors";
 
 const themes = {
   light: {
     mode: "light",
     background: "#FFFFFF",
     text: "#18181B",
-    primary: "#2970fa",
+    primary: COLORS.primary,
   },
   dark: {
     mode: "dark",
-    background: "#1b1819ff",
+    background: COLORS.bgDark,
     text: "#FFFFFF",
     primary: "#9CC9FF",
   },
 };
 
-const ThemeContext = createContext({
-  theme: themes.light,
-});
+// Composant interne qui utilise le contexte
+function ThemeStatusBar() {
+  const { effectiveTheme } = useThemeContext();
+  return <StatusBar style={effectiveTheme === "dark" ? "light" : "dark"} />;
+}
 
 export function ThemeProvider({ children }) {
-  const colorScheme = useColorScheme() || "light";
-  const theme = useMemo(() => (colorScheme === "dark" ? themes.dark : themes.light), [colorScheme]);
-
   return (
-    <ThemeContext.Provider value={{ theme }}>
-      <StatusBar style={theme.mode === "dark" ? "light" : "dark"} />
+    <ThemeContextProvider>
+      <ThemeStatusBar />
       {children}
-    </ThemeContext.Provider>
+    </ThemeContextProvider>
   );
 }
 
+// Hook pour obtenir le thème actuel (compatibilité)
 export function useTheme() {
-  return useContext(ThemeContext).theme;
+  const { effectiveTheme } = useThemeContext();
+  return effectiveTheme === "dark" ? themes.dark : themes.light;
 }
+
+// Ré-exporter le hook du contexte
+export { useThemeContext } from "./contexts/ThemeContext";

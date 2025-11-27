@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
 } from "react-native";
 import {
   doc,
@@ -18,18 +17,22 @@ import {
 } from "@react-native-firebase/firestore";
 import { auth, db } from "../../config/firebase";
 import grantPromotionalEntitlement from "../utils/grantPromotionalEntitlement";
-import Purchases from "react-native-purchases";
 import { showMessage } from "react-native-flash-message";
-import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
-import Animated, { FadeIn } from "react-native-reanimated";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import Ionicons from "react-native-vector-icons/Ionicons";
-import i18n from "../../i18n";
+import Animated, { FadeInDown } from "react-native-reanimated";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
+import SettingsPageLayout from "../components/SettingsPageLayout";
+import { COLORS } from "../styles/colors";
+import { useThemeContext } from "../ThemeProvider";
+import { useSubscription } from "../contexts/SubscriptionContext";
 
 const CodePromoPage = ({ navigation }) => {
+  const { t } = useTranslation();
+  const { isDarkMode } = useThemeContext();
+  const { forceRefresh } = useSubscription();
+
   const [promoCode, setPromoCode] = useState("");
   const [isCodeLocked, setIsCodeLocked] = useState(false);
-  const [canClaimReward, setCanClaimReward] = useState(false);
 
   useEffect(() => {
     checkIfAlreadyUsed();
@@ -46,10 +49,6 @@ const CodePromoPage = ({ navigation }) => {
       if (userSnap.exists() && userSnap.data().promoCodeUsed) {
         setPromoCode(userSnap.data().promoCodeUsed);
         setIsCodeLocked(true);
-
-        if (userSnap.data().sub === "gratuit") {
-          setCanClaimReward(true);
-        }
       }
     } catch (e) {
       console.error("Erreur lors du check promo déjà utilisé:", e);
@@ -59,215 +58,285 @@ const CodePromoPage = ({ navigation }) => {
   const handleValidatePromoCode = async () => {
     if (!promoCode || promoCode.trim().length < 3) {
       showMessage({
-        message: "Veuillez entrer un code promo valide.",
+        message: t("veuillez_entrer_code_promo_valide"),
         type: "danger",
       });
       return;
     }
 
     try {
-      // Vérifier dans Firestore
       const codesQuery = query(
         collection(db, "codes"),
-        where("code", "==", promoCode.trim()), // sensible à la casse
+        where("code", "==", promoCode.trim()),
         where("isActive", "==", true)
       );
 
       const snap = await getDocs(codesQuery);
 
       if (snap.empty) {
-        showMessage({ message: "Code promo invalide ou expiré.", type: "danger" });
+        showMessage({ message: t("code_promo_invalide_ou_expire"), type: "danger" });
         return;
       }
 
-      // Associer le code à l’utilisateur
       const currentUserUID = auth.currentUser?.uid;
       if (!currentUserUID) {
-        showMessage({ message: "Non connecté.", type: "danger" });
+        showMessage({ message: t("non_connecte"), type: "danger" });
         return;
       }
 
       const userRef = doc(db, "users", currentUserUID);
-     await updateDoc(userRef, {
-  promoCodeUsed: promoCode,
-});
-      setIsCodeLocked(true);
-      setCanClaimReward(true);
-
-      showMessage({
-        message: "Code valide, vous pouvez réclamer votre semaine gratuite 🎉",
-        type: "success",
+      await updateDoc(userRef, {
+        promoCodeUsed: promoCode,
       });
-    } catch (error) {
-      console.error("Erreur:", error);
-      showMessage({ message: "Erreur lors de la validation.", type: "danger" });
-    }
-  };
+      setIsCodeLocked(true);
 
-  const handleGrantReward = async () => {
-    try {
-      const customerInfo = await Purchases.getCustomerInfo();
-      const appUserId = customerInfo.originalAppUserId;
-
+      // Grant the promotional entitlement
       const entitlementId = "premium";
       const durationDays = 7;
       const duration = "weekly";
 
-      if (appUserId) {
-        await grantPromotionalEntitlement(
-          appUserId,
-          entitlementId,
-          durationDays,
-          duration
-        );
+      const result = await grantPromotionalEntitlement(
+        entitlementId,
+        durationDays,
+        duration
+      );
 
-        await AsyncStorage.setItem("sub", entitlementId);
+      if (result.success) {
+        // Synchroniser avec le contexte centralisé
+        await forceRefresh();
 
-        Alert.alert(
-          "Succès",
-          "Votre abonnement d'une semaine a été activé avec succès ✅ Veuillez fermer et réouvrir l'app."
-        );
-
-        await Purchases.getCustomerInfo();
-        await Purchases.syncPurchases();
-        navigation.goBack();
+        // Redirection vers PaymentResultScreen avec succès
+        navigation.navigate("PaymentResultScreen", { success: true });
       } else {
-        Alert.alert("Impossible de récupérer l'ID utilisateur RevenueCat.");
+        showMessage({
+          message: result.error || t("erreur_lors_de_la_validation"),
+          type: "danger",
+        });
       }
     } catch (error) {
-      console.error("Erreur lors de l'octroi:", error);
-      Alert.alert(`Erreur : ${error.message}`);
+      console.error("Erreur:", error);
+      showMessage({ message: t("erreur_lors_de_la_validation"), type: "danger" });
     }
   };
 
+
   return (
-    <KeyboardAwareScrollView
-      keyboardDismissMode="on-drag"
-      keyboardShouldPersistTaps="handled"
-      enableOnAndroid
-      extraHeight={200}
-      className="flex-1 bg-gray-100 dark:bg-gray-900"
+    <SettingsPageLayout
+      title={t("code_promo")}
+      subtitle={t("utilisez_code_promo_recompenses")}
     >
-      <Animated.View entering={FadeIn.duration(200)} className="p-5">
-        {/* Saisie du code promo */}
-        <View className="bg-white dark:bg-gray-800 rounded-2xl p-6 mb-6 border border-gray-200 dark:border-gray-700">
+      {/* Section Saisie du code */}
+      <Animated.View
+        entering={FadeInDown.duration(500).delay(100)}
+        style={styles.section}
+      >
+        <View
+          style={[
+            styles.inputCard,
+            { backgroundColor: isDarkMode ? COLORS.bgDarkSecondary : "#F7F9F9" },
+          ]}
+        >
           <Text
-            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-            style={{ fontFamily: "Inter_500Medium" }}
+            style={[
+              styles.inputLabel,
+              { color: isDarkMode ? "#FFFFFF" : "#000000" },
+            ]}
           >
-            Entrez votre code promo
+            {t("entrez_votre_code_promo")}
           </Text>
           <TextInput
-            className="block w-full pr-10 sm:text-sm rounded-md dark:bg-gray-700 dark:text-white dark:border-gray-600"
             style={[
               styles.input,
               {
-                borderColor: isCodeLocked ? "#E5E7EB" : "#D1D5DB",
-                backgroundColor: isCodeLocked ? "#F3F4F6" : "#FFFFFF",
-                color: isCodeLocked ? "#9CA3AF" : "#111827",
+                borderColor: isCodeLocked
+                  ? isDarkMode
+                    ? "#2F3336"
+                    : "#E5E7EB"
+                  : isDarkMode
+                  ? "#3F3F46"
+                  : "#D1D5DB",
+                backgroundColor: isCodeLocked
+                  ? isDarkMode
+                    ? COLORS.bgDarkTertiary
+                    : "#F3F4F6"
+                  : isDarkMode
+                  ? COLORS.bgDarkSecondary
+                  : "#FFFFFF",
+                color: isCodeLocked
+                  ? isDarkMode
+                    ? "#71717A"
+                    : "#9CA3AF"
+                  : isDarkMode
+                  ? "#FFFFFF"
+                  : "#000000",
               },
-              isCodeLocked && styles.inputDisabled,
             ]}
             editable={!isCodeLocked}
             value={promoCode}
             onChangeText={(text) => setPromoCode(text)}
-            placeholder="Ex: CODE2025"
-            placeholderTextColor="#9CA3AF"
+            placeholder={t("ex_code2025")}
+            placeholderTextColor={isDarkMode ? "#71717A" : "#9CA3AF"}
           />
 
           {!isCodeLocked && (
             <TouchableOpacity
               onPress={handleValidatePromoCode}
-              className="mt-4 bg-blue-600 hover:bg-blue-700 text-white py-2.5 px-4 rounded-full"
+              style={styles.validateButton}
               activeOpacity={0.8}
             >
-              <Text
-                className="text-white text-base font-medium text-center"
-                style={{ fontFamily: "Inter_500Medium" }}
-              >
-                Valider le code
-              </Text>
-            </TouchableOpacity>
-          )}
-
-          {canClaimReward && (
-            <TouchableOpacity
-              onPress={handleGrantReward}
-              className="mt-4 bg-green-600 hover:bg-green-700 text-white py-2.5 px-4 rounded-md"
-              activeOpacity={0.8}
-            >
-              <Text
-                className="text-white text-base font-medium text-center"
-                style={{ fontFamily: "Inter_500Medium" }}
-              >
-                Obtenir 1 semaine Premium gratuite
-              </Text>
+              <Text style={styles.buttonText}>{t("valider_le_code")}</Text>
             </TouchableOpacity>
           )}
         </View>
+      </Animated.View>
 
-        {/* Section Explication */}
-        <View className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
-          <Text
-            className="text-lg font-semibold text-gray-900 dark:text-white mb-5"
-            style={{ fontFamily: "Inter_400Regular" }}
-          >
-            Comment ça marche ?
-          </Text>
+      {/* Section Comment ça marche */}
+      <Animated.View
+        entering={FadeInDown.duration(500).delay(200)}
+        style={styles.section}
+      >
+        <Text
+          style={[
+            styles.sectionTitle,
+            { color: isDarkMode ? "#FFFFFF" : "#000000" },
+          ]}
+        >
+          {t("comment_ca_marche")}
+        </Text>
 
-          <View className="flex-row items-start mb-4">
-            <Ionicons
-              name="pricetag-outline"
-              size={20}
-              color="#3B82F6"
-              style={{ marginRight: 8 }}
-            />
-            <Text className="text-gray-700 dark:text-gray-300 flex-1">
-              Entrez un <Text className="font-bold">code promo valide</Text> reçu
-              par email ou événement spécial.
+        <View
+          style={[
+            styles.infoCard,
+            { backgroundColor: isDarkMode ? COLORS.bgDarkSecondary : "#F7F9F9" },
+          ]}
+        >
+          <View style={styles.infoItem}>
+            <View style={[styles.iconContainer, { backgroundColor: "#3B82F620" }]}>
+              <MaterialCommunityIcons
+                name="ticket-percent"
+                size={20}
+                color="#3B82F6"
+              />
+            </View>
+            <Text
+              style={[
+                styles.infoText,
+                { color: isDarkMode ? "#CBD5E1" : "#475569" },
+              ]}
+            >
+              {t("entrez_code_promo_valide_recu_email")}
             </Text>
           </View>
 
-          <View className="flex-row items-start mb-4">
-            <Ionicons
-              name="gift-outline"
-              size={20}
-              color="#10B981"
-              style={{ marginRight: 8 }}
-            />
-            <Text className="text-gray-700 dark:text-gray-300 flex-1">
-              Activez <Text className="font-bold">1 semaine Premium gratuite</Text>.
+          <View style={styles.infoItem}>
+            <View style={[styles.iconContainer, { backgroundColor: "#10B98120" }]}>
+              <MaterialCommunityIcons name="gift" size={20} color="#10B981" />
+            </View>
+            <Text
+              style={[
+                styles.infoText,
+                { color: isDarkMode ? "#CBD5E1" : "#475569" },
+              ]}
+            >
+              {t("activez_1_semaine_premium_gratuite")}
             </Text>
           </View>
 
-          <View className="flex-row items-start">
-            <Ionicons
-              name="alert-circle-outline"
-              size={20}
-              color="#EF4444"
-              style={{ marginRight: 8 }}
-            />
-            <Text className="text-gray-700 dark:text-gray-300 flex-1">
-              <Text className="font-bold">Important :</Text> un seul code promo
-              peut être utilisé par compte.
+          <View style={styles.infoItem}>
+            <View style={[styles.iconContainer, { backgroundColor: "#EF444420" }]}>
+              <MaterialCommunityIcons
+                name="alert-circle"
+                size={20}
+                color="#EF4444"
+              />
+            </View>
+            <Text
+              style={[
+                styles.infoText,
+                { color: isDarkMode ? "#CBD5E1" : "#475569" },
+              ]}
+            >
+              {t("important_un_seul_code_promo_par_compte")}
             </Text>
           </View>
         </View>
       </Animated.View>
-    </KeyboardAwareScrollView>
+    </SettingsPageLayout>
   );
 };
 
 const styles = StyleSheet.create({
-  input: {
-    height: 40,
-    paddingHorizontal: 12,
-    fontSize: 16,
-    borderWidth: 1,
-    borderRadius: 6,
+  section: {
+    marginBottom: 32,
+    paddingHorizontal: 16,
   },
-  inputDisabled: {
-    opacity: 0.6,
+  sectionTitle: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 20,
+    letterSpacing: -0.5,
+    marginBottom: 16,
+  },
+  inputCard: {
+    borderRadius: 16,
+    padding: 20,
+  },
+  inputLabel: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 16,
+    letterSpacing: -0.3,
+    marginBottom: 12,
+  },
+  input: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 16,
+    height: 48,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  validateButton: {
+    backgroundColor: "#3B82F6",
+    borderRadius: 9999,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  claimButton: {
+    backgroundColor: "#10B981",
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginTop: 12,
+  },
+  buttonText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 16,
+    color: "#FFFFFF",
+    letterSpacing: -0.3,
+  },
+  infoCard: {
+    borderRadius: 16,
+    padding: 20,
+  },
+  infoItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 16,
+  },
+  iconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  infoText: {
+    flex: 1,
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
+    lineHeight: 20,
+    paddingTop: 8,
   },
 });
 

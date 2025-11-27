@@ -1,47 +1,64 @@
-import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
-  Image,
-  ScrollView,
-  StyleSheet,
-  SafeAreaView,
   Platform,
   UIManager,
   LayoutAnimation,
   ActivityIndicator,
-  Alert, // Importer ActivityIndicator
+  Alert,
+  StyleSheet,
 } from "react-native";
-import { doc, getDoc, collection, getDocs,runTransaction } from "@react-native-firebase/firestore";
+import { doc, getDoc, runTransaction } from "@react-native-firebase/firestore";
 import { auth, db } from "../../config/firebase";
-import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import Animated, { FadeInDown } from "react-native-reanimated";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import grantPromotionalEntitlement from "../utils/grantPromotionalEntitlement";
-import Purchases from "react-native-purchases";
-import i18n from "../../i18n";
+import { useTranslation } from "react-i18next";
+import { useThemeContext } from "../ThemeProvider";
+import SettingsPageLayout from "../components/SettingsPageLayout";
+import { COLORS } from "../styles/colors";
+import { useSubscription } from "../contexts/SubscriptionContext";
 
-const CoinBalanceCard = ({ coins }) => (
+const CoinBalanceCard = ({ coins, isDarkMode, t }) => (
   <Animated.View
     entering={FadeInDown.duration(500).delay(100)}
-    className="bg-white dark:bg-gray-800 rounded  p-6 mb-8 mx-4 flex-row items-center justify-between"
+    style={[
+      styles.balanceCard,
+      { backgroundColor: isDarkMode ? COLORS.bgDarkSecondary : "#F7F9F9" },
+    ]}
   >
-    <View>
-      <Text
-        className="text-gray-500 dark:text-gray-400 text-sm mb-1"
-        style={{ fontFamily: "Inter_400Regular" }}
-      >
-        {i18n.t("solde_actuel")}
-      </Text>
-      <Text
-        className="text-gray-900 dark:text-white text-3xl font-bold"
-        style={{ fontFamily: "Inter_400Regular" }}
-      >
-        {coins} pièces
-      </Text>
-    </View>
-    <View className="bg-yellow-400 dark:bg-yellow-500 p-3 rounded-full">
-      <MaterialCommunityIcons name="bitcoin" size={32} color="white" />
+    <View style={styles.balanceContent}>
+      <View style={styles.balanceTextContainer}>
+        <Text
+          style={[
+            styles.balanceLabel,
+            { color: isDarkMode ? "#94A3B8" : "#64748B" },
+          ]}
+        >
+          {t("solde_actuel")}
+        </Text>
+        <Text
+          style={[
+            styles.balanceAmount,
+            { color: isDarkMode ? "#FFFFFF" : "#000000" },
+          ]}
+        >
+          {coins}
+        </Text>
+        <Text
+          style={[
+            styles.balanceUnit,
+            { color: isDarkMode ? "#94A3B8" : "#64748B" },
+          ]}
+        >
+          {t("pieces")}
+        </Text>
+      </View>
+      <View style={styles.balanceIconContainer}>
+        <MaterialCommunityIcons name="bitcoin" size={40} color="#F59E0B" />
+      </View>
     </View>
   </Animated.View>
 );
@@ -54,60 +71,70 @@ const ExchangeOptionCard = ({
   userCoins,
   isExchanging,
   exchangingItemId,
+  isDarkMode,
+  t,
 }) => {
-  // Déterminer si CE bouton spécifique est en cours d'échange OU si un autre échange est en cours
   const isCurrentlyExchanging = isExchanging && exchangingItemId === item.id;
-  const isAnyExchanging = isExchanging && exchangingItemId !== null; // Un échange est en cours
-
-  // Désactivé si coût non chargé OU si pièces insuffisantes OU si un échange est en cours
+  const isAnyExchanging = isExchanging && exchangingItemId !== null;
   const isDisabled =
     item.cost === null || userCoins < item.cost || isAnyExchanging;
-  const showLoading = isCurrentlyExchanging; // Afficher le spinner uniquement pour cet item
+  const showLoading = isCurrentlyExchanging;
 
   return (
     <Animated.View
-      // ... (props Animated.View inchangées)
-      className="bg-white dark:bg-gray-800 rounded p-4 mb-4 mx-4 flex-row items-center"
+      entering={FadeInDown.duration(500).delay(200 + index * 100)}
+      style={styles.exchangeCard}
     >
-      {/* ... (Icône et Textes inchangés) ... */}
-      <View className={`p-3 rounded mr-4 ${item.bgColor}`}>
-        <Ionicons name={item.icon} size={24} color="white" />
+      <View
+        style={[
+          styles.exchangeIconContainer,
+          { backgroundColor: item.bgColor },
+        ]}
+      >
+        <MaterialCommunityIcons name={item.icon} size={24} color="#FFFFFF" />
       </View>
-      <View className="flex-1 mr-2">
+      <View style={styles.exchangeTextContainer}>
         <Text
-          className="text-gray-900 dark:text-white font-semibold text-base"
-          style={{ fontFamily: "Inter_500Medium" }}
+          style={[
+            styles.exchangeTitle,
+            { color: isDarkMode ? "#FFFFFF" : "#000000" },
+          ]}
         >
           {item.name}
         </Text>
         <Text
-          className="text-yellow-600 dark:text-yellow-400 text-sm"
-          style={{ fontFamily: "Inter_400Regular" }}
+          style={[
+            styles.exchangeCost,
+            { color: isDarkMode ? "#F59E0B" : "#D97706" },
+          ]}
         >
-          {item.cost !== null ? `${item.cost} pièces` : "chargement"}
+          {item.cost !== null ? `${item.cost} ${t("pieces")}` : t("chargement")}
         </Text>
       </View>
       <TouchableOpacity
         onPress={() => onPressExchange(item.id, item.cost)}
-        disabled={isDisabled || showLoading} // Désactiver si un échange est en cours
-        className={`py-2 px-4 rounded-full min-w-[90px] flex items-center justify-center ${
-          // min-width pour éviter le saut de taille
-          isDisabled && !showLoading
-            ? "bg-gray-400 dark:bg-gray-600 opacity-70" // Style désactivé normal
-            : showLoading
-            ? "bg-blue-300 dark:bg-blue-800" // Style pendant le chargement de cet item
-            : "bg-blue-500 dark:bg-blue-600" // Style actif
-        }`}
+        disabled={isDisabled || showLoading}
+        style={[
+          styles.exchangeButton,
+          {
+            backgroundColor:
+              isDisabled && !showLoading
+                ? isDarkMode
+                  ? "#4B5563"
+                  : "#9CA3AF"
+                : showLoading
+                ? isDarkMode
+                  ? "#1E3A8A"
+                  : "#93C5FD"
+                : "#3B82F6",
+            opacity: isDisabled && !showLoading ? 0.5 : 1,
+          },
+        ]}
       >
         {showLoading ? (
           <ActivityIndicator size="small" color="#FFFFFF" />
         ) : (
-          <Text
-            className="text-white font-bold text-sm"
-            style={{ fontFamily: "Inter_400Regular" }}
-          >
-            {i18n.t("échanger")}
-          </Text>
+          <Text style={styles.exchangeButtonText}>{t("échanger")}</Text>
         )}
       </TouchableOpacity>
     </Animated.View>
@@ -115,41 +142,59 @@ const ExchangeOptionCard = ({
 };
 
 // Composant pour une question FAQ (Accordion)
-const FaqItem = ({ item, onPress, isExpanded }) => {
+const FaqItem = ({ item, onPress, isExpanded, isDarkMode }) => {
   const toggleExpand = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     onPress();
   };
 
   return (
-    <View className="bg-white dark:bg-gray-800 rounded  mb-4 mx-4 overflow-hidden">
+    <View
+      style={[
+        styles.faqCard,
+        { backgroundColor: isDarkMode ? COLORS.bgDarkSecondary : "#F7F9F9" },
+      ]}
+    >
       <TouchableOpacity
         onPress={toggleExpand}
-        className="p-4 flex-row items-center justify-between"
+        style={styles.faqHeader}
         activeOpacity={0.8}
       >
         <Text
-          className="text-gray-900 dark:text-white font-semibold text-base flex-1 mr-3"
-          style={{ fontFamily: "Inter_500Medium" }}
+          style={[
+            styles.faqQuestion,
+            { color: isDarkMode ? "#FFFFFF" : "#000000" },
+          ]}
         >
           {item.question}
         </Text>
-        <Ionicons
+        <MaterialCommunityIcons
           name={isExpanded ? "chevron-up" : "chevron-down"}
-          size={22}
-          color={isExpanded ? "#3B82F6" : "#6B7280"} // Blue-500 or Gray-500
+          size={24}
+          color={isExpanded ? "#3B82F6" : isDarkMode ? "#71717A" : "#A1A1AA"}
         />
       </TouchableOpacity>
       {isExpanded && (
-        <View className="px-4 pb-4 pt-2 border-t border-gray-200 dark:border-gray-700">
+        <View
+          style={[
+            styles.faqContent,
+            {
+              borderTopColor: isDarkMode ? "#2F3336" : "#E5E7EB",
+            },
+          ]}
+        >
           {item.answers.map((answer, index) => (
-            <Text
-              key={index}
-              style={{ fontFamily: "Inter_400Regular" }}
-              className="text-gray-600 dark:text-gray-300 text-sm mb-2 leading-relaxed"
-            >
-              • {answer}
-            </Text>
+            <View key={index} style={styles.faqAnswerItem}>
+              <View style={styles.faqBullet} />
+              <Text
+                style={[
+                  styles.faqAnswerText,
+                  { color: isDarkMode ? "#CBD5E1" : "#475569" },
+                ]}
+              >
+                {answer}
+              </Text>
+            </View>
           ))}
         </View>
       )}
@@ -160,18 +205,21 @@ const FaqItem = ({ item, onPress, isExpanded }) => {
 // --- Page Principale ---
 
 const CoinsPage = ({ navigation }) => {
+  const { t } = useTranslation();
+  const { isDarkMode } = useThemeContext();
+  const { forceRefresh } = useSubscription();
+
   const [userCoins, setUserCoins] = useState(0);
   const [subscriptionPrices, setSubscriptionPrices] = useState({
-    // Initialiser avec null pour indiquer le chargement
     premium_month: null,
     premium_year: null,
     pro_month: null,
     pro_year: null,
   });
-  const [isLoading, setIsLoading] = useState(true); // État pour le chargement initial
+  const [isLoading, setIsLoading] = useState(true);
   const [expandedFaq, setExpandedFaq] = useState(null);
-  const [isExchanging, setIsExchanging] = useState(false); // État pour l'échange en cours
-  const [exchangingItemId, setExchangingItemId] = useState(null); // Quel item est en cours d'échange
+  const [isExchanging, setIsExchanging] = useState(false);
+  const [exchangingItemId, setExchangingItemId] = useState(null);
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -234,36 +282,35 @@ const CoinsPage = ({ navigation }) => {
     fetchInitialData();
   }, []);
 
-  // Structure des options d'échange (sera mise à jour avec les prix réels)
+  // Structure des options d'échange
   const exchangeOptions = [
     {
-      id: "premium_month", // Correspond à la clé dans Firestore et state
-      name: "Abonnement Premium (1 mois)",
-      cost: subscriptionPrices.premium_month, // Utilise l'état
-      icon: "star-outline",
-      bgColor: "bg-purple-500",
+      id: "premium_month",
+      name: t("abonnement_premium_1_mois"),
+      cost: subscriptionPrices.premium_month,
+      icon: "crown",
+      bgColor: "#8B5CF6",
     },
     {
       id: "pro_month",
-      name: "Abonnement Pro (1 mois)",
-      cost: subscriptionPrices.pro_month, // Utilise l'état
-      icon: "rocket-outline",
-      bgColor: "bg-green-500",
+      name: t("abonnement_pro_1_mois"),
+      cost: subscriptionPrices.pro_month,
+      icon: "rocket",
+      bgColor: "#10B981",
     },
-    // Ajoutez les versions annuelles si vous le souhaitez
     {
       id: "premium_year",
-      name: "Abonnement Premium (1 an)",
-      cost: subscriptionPrices.premium_year, // Utilise l'état
-      icon: "calendar-outline", // ou autre icône pertinente
-      bgColor: "bg-indigo-500",
+      name: t("abonnement_premium_1_an"),
+      cost: subscriptionPrices.premium_year,
+      icon: "calendar-star",
+      bgColor: "#6366F1",
     },
     {
       id: "pro_year",
-      name: "Abonnement Pro (1 an)",
-      cost: subscriptionPrices.pro_year, // Utilise l'état
-      icon: "speedometer-outline", // ou autre icône pertinente
-      bgColor: "bg-teal-500",
+      name: t("abonnement_pro_1_an"),
+      cost: subscriptionPrices.pro_year,
+      icon: "flash",
+      bgColor: "#14B8A6",
     },
   ];
 
@@ -329,28 +376,28 @@ const CoinsPage = ({ navigation }) => {
   // Fonction à appeler lors du clic sur "Échanger"
   const handleExchangePress = async (itemId, itemCost) => {
     if (itemCost === null) {
-      Alert.alert("Erreur", "Le coût de cet article n'est pas disponible.");
+      Alert.alert(t("erreur"), t("cout_article_indisponible"));
       return;
     }
 
     const userUID = auth.currentUser?.uid;
     if (!userUID) {
-      Alert.alert("Erreur", "Utilisateur non authentifié.");
+      Alert.alert(t("erreur"), t("utilisateur_non_authentifie"));
       return;
     }
 
     // 1. Vérifier si assez de pièces (déjà fait par disabled, mais double check)
     if (userCoins < itemCost) {
       Alert.alert(
-        "Pièces insuffisantes",
-        "Vous n'avez pas assez de pièces pour cet échange."
+        t("pieces_insuffisantes"),
+        t("vous_navez_pas_assez_de_pieces")
       );
       return;
     }
 
     const entitlementDetails = getEntitlementDetails(itemId);
     if (!entitlementDetails) {
-      Alert.alert("Erreur", "Type d'abonnement non reconnu.");
+      Alert.alert(t("erreur"), t("type_abonnement_non_reconnu"));
       return;
     }
 
@@ -359,68 +406,65 @@ const CoinsPage = ({ navigation }) => {
     setIsExchanging(true);
 
     try {
-      // 2. Transaction Firestore pour déduire les pièces
-      await runTransaction(db, async (transaction) => {
-  const userRef = doc(db, "users", userUID);
-  const userDoc = await transaction.get(userRef);
-
-  if (!userDoc.exists()) {
-    throw new Error("Document utilisateur non trouvé.");
-  }
-
-  const currentPoints = userDoc.data()?.pieces || 0;
-
-  if (currentPoints < itemCost) {
-    throw new Error("Pièces insuffisantes (vérification transaction).");
-  }
-
-  const newPoints = currentPoints - itemCost;
-  transaction.update(userRef, { pieces: newPoints });
-
-  console.log(`Transaction Firestore réussie: ${currentPoints} -> ${newPoints} pièces`);
-});
-
-      // Si la transaction réussit :
-      // 3. Appeler la fonction pour accorder l'entitlement via RevenueCat
-      const customerInfo = await Purchases.getCustomerInfo();
-      const appUserId = customerInfo.originalAppUserId; // ID utilisateur RevenueCat
-
-      if (!appUserId) {
-        throw new Error("Impossible de récupérer l'ID utilisateur RevenueCat.");
-      }
-
       const { entitlementId, durationDays, duration } = entitlementDetails;
-      await grantPromotionalEntitlement(
-        appUserId,
+
+      // IMPORTANT: Accorder l'entitlement AVANT de déduire les pièces
+      // Cela évite que l'utilisateur perde ses pièces sans recevoir l'abonnement
+      const grantResult = await grantPromotionalEntitlement(
         entitlementId,
         durationDays,
         duration
       );
+
+      if (!grantResult.success) {
+        throw new Error(grantResult.error || t("erreur_accord_abonnement"));
+      }
+
       console.log("Entitlement accordé avec succès via le backend/RevenueCat.");
 
-      // 4. Mettre à jour l'état local des pièces APRES succès complet
+      // Une fois l'entitlement accordé, déduire les pièces via transaction Firestore
+      await runTransaction(db, async (transaction) => {
+        const userRef = doc(db, "users", userUID);
+        const userDoc = await transaction.get(userRef);
+
+        if (!userDoc.exists()) {
+          throw new Error(t("document_utilisateur_non_trouve"));
+        }
+
+        const currentPoints = userDoc.data()?.pieces || 0;
+
+        if (currentPoints < itemCost) {
+          throw new Error(t("pieces_insuffisantes"));
+        }
+
+        const newPoints = currentPoints - itemCost;
+        transaction.update(userRef, { pieces: newPoints });
+
+        console.log(`Transaction Firestore réussie: ${currentPoints} -> ${newPoints} pièces`);
+      });
+
+      // Mettre à jour l'état local des pièces
       setUserCoins((prevCoins) => prevCoins - itemCost);
 
-      // 5. Rafraîchir les infos RevenueCat localement et afficher succès
-      await Purchases.syncPurchases(); // ou getCustomerInfo()
+      // Synchroniser avec le contexte centralisé
+      await forceRefresh();
+
       Alert.alert(
-        "Échange réussi !",
-        `Vous avez échangé ${itemCost} pièces contre l'abonnement ${entitlementDetails.entitlementId} (${duration}). L'abonnement est actif. Veuillez redémarrer l'application pour voir tous les changements.`
-        // "Veuillez redémarrer l'application pour voir tous les changements." // Si nécessaire
+        t("echange_reussi"),
+        t("echange_reussi_message", {
+          cost: itemCost,
+          entitlement: entitlementId,
+          duration: duration
+        })
       );
-      navigation.goBack(); // Retour à la page précédente après succès
+      navigation.goBack();
     } catch (error) {
-      // 6. Gérer les erreurs (Firestore ou RevenueCat/Backend)
       console.error("Erreur lors de l'échange :", error);
       Alert.alert(
-        "Échec de l'échange",
-        error.message || "Une erreur est survenue. Veuillez réessayer."
+        t("echec_echange"),
+        error.message || t("erreur_survenue_reessayer")
       );
-      // Note : Si la transaction Firestore a échoué, les points n'ont pas été déduits.
-      // Si grantPromotionalEntitlement échoue APRES la transaction, les points SONT déduits.
-      // Vous pourriez envisager une logique de compensation (Cloud Function ?) mais c'est complexe.
     } finally {
-      // Arrêter l'indicateur de chargement
       setIsExchanging(false);
       setExchangingItemId(null);
     }
@@ -429,68 +473,231 @@ const CoinsPage = ({ navigation }) => {
   // Afficher un indicateur de chargement pendant la récupération des données
   if (isLoading) {
     return (
-      <SafeAreaView className="flex-1 justify-center items-center bg-gray-100 dark:bg-gray-900">
+      <View
+        style={[
+          styles.loadingContainer,
+          { backgroundColor: isDarkMode ? COLORS.bgDark : "#FFFFFF" },
+        ]}
+      >
         <ActivityIndicator size="large" color="#3B82F6" />
-      </SafeAreaView>
+        <Text
+          style={[
+            styles.loadingText,
+            { color: isDarkMode ? "#94A3B8" : "#64748B" },
+          ]}
+        >
+          {t("chargement")}...
+        </Text>
+      </View>
     );
   }
 
   // Afficher la page une fois les données chargées
   return (
-    <SafeAreaView className="flex-1 bg-gray-100 dark:bg-gray-900">
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <Animated.View entering={FadeIn.duration(600)} className="pt-6 pb-2">
-          {/* Section Solde */}
-          <CoinBalanceCard coins={userCoins} />
+    <SettingsPageLayout
+      title={t("mes_pieces")}
+      subtitle={t("gerez_et_echangez_vos_pieces")}
+    >
+      {/* Section Solde */}
+      <View style={styles.section}>
+        <CoinBalanceCard coins={userCoins} isDarkMode={isDarkMode} t={t} />
+      </View>
 
-          {/* Section Échanger les pièces */}
-          <View className="mb-6">
-            <Text
-              className="text-xl font-semibold text-gray-800 dark:text-gray-200 mx-4 mb-4"
-              style={{ fontFamily: "Inter_400Regular" }}
-            >
-              {i18n.t("echanger_mes_pieces")}
-            </Text>
-            {exchangeOptions.map((item, index) => (
-              <ExchangeOptionCard
-                key={item.id}
-                item={item}
-                index={index}
-                onPressExchange={handleExchangePress}
-                userCoins={userCoins}
-                isExchanging={isExchanging} // Passer l'état global
-                exchangingItemId={exchangingItemId}
-              />
-            ))}
-          </View>
+      {/* Section Échanger les pièces */}
+      <View style={styles.section}>
+        <Text
+          style={[
+            styles.sectionTitle,
+            { color: isDarkMode ? "#FFFFFF" : "#000000" },
+          ]}
+        >
+          {t("echanger_mes_pieces")}
+        </Text>
+        {exchangeOptions.map((item, index) => (
+          <ExchangeOptionCard
+            key={item.id}
+            item={item}
+            index={index}
+            onPressExchange={handleExchangePress}
+            userCoins={userCoins}
+            isExchanging={isExchanging}
+            exchangingItemId={exchangingItemId}
+            isDarkMode={isDarkMode}
+            t={t}
+          />
+        ))}
+      </View>
 
-          {/* Section FAQ */}
-          <View className="mb-6">
-            <Text
-              className="text-xl font-semibold text-gray-800 dark:text-gray-200 mx-4 mb-4"
-              style={{ fontFamily: "Inter_400Regular" }}
-            >
-              {i18n.t("comment_ca_marche")}
-            </Text>
-            {faqData.map((item, index) => (
-              <Animated.View
-                key={item.id}
-                entering={FadeInDown.duration(500).delay(600 + index * 100)}
-              >
-                <FaqItem
-                  item={item}
-                  onPress={() => handleToggleFaq(item.id)}
-                  isExpanded={expandedFaq === item.id}
-                />
-              </Animated.View>
-            ))}
-          </View>
-        </Animated.View>
-      </ScrollView>
-    </SafeAreaView>
+      {/* Section FAQ */}
+      <View style={styles.section}>
+        <Text
+          style={[
+            styles.sectionTitle,
+            { color: isDarkMode ? "#FFFFFF" : "#000000" },
+          ]}
+        >
+          {t("comment_ca_marche")}
+        </Text>
+        {faqData.map((item, index) => (
+          <Animated.View
+            key={item.id}
+            entering={FadeInDown.duration(500).delay(400 + index * 100)}
+            style={styles.faqItem}
+          >
+            <FaqItem
+              item={item}
+              onPress={() => handleToggleFaq(item.id)}
+              isExpanded={expandedFaq === item.id}
+              isDarkMode={isDarkMode}
+            />
+          </Animated.View>
+        ))}
+      </View>
+    </SettingsPageLayout>
   );
 };
 
-export default CoinsPage;
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
+    marginTop: 12,
+  },
+  section: {
+    marginBottom: 32,
+    paddingHorizontal: 16,
+  },
+  sectionTitle: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 20,
+    letterSpacing: -0.5,
+    marginBottom: 16,
+  },
+  // Balance Card
+  balanceCard: {
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 8,
+  },
+  balanceContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  balanceTextContainer: {
+    flex: 1,
+  },
+  balanceLabel: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  balanceAmount: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 48,
+    letterSpacing: -1,
+  },
+  balanceUnit: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 16,
+    marginTop: 4,
+  },
+  balanceIconContainer: {
+    marginLeft: 16,
+  },
+  // Exchange Card
+  exchangeCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "transparent",
+    paddingVertical: 12,
+    marginBottom: 12,
+  },
+  exchangeIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 16,
+  },
+  exchangeTextContainer: {
+    flex: 1,
+  },
+  exchangeTitle: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 16,
+    letterSpacing: -0.3,
+    marginBottom: 4,
+  },
+  exchangeCost: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 14,
+  },
+  exchangeButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    minWidth: 100,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  exchangeButtonText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 14,
+    color: "#FFFFFF",
+  },
+  // FAQ Card
+  faqItem: {
+    marginBottom: 12,
+  },
+  faqCard: {
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  faqHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 16,
+  },
+  faqQuestion: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 16,
+    letterSpacing: -0.3,
+    flex: 1,
+    marginRight: 12,
+  },
+  faqContent: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 16,
+    borderTopWidth: 1,
+  },
+  faqAnswerItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 8,
+  },
+  faqBullet: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#3B82F6",
+    marginTop: 7,
+    marginRight: 12,
+  },
+  faqAnswerText: {
+    flex: 1,
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
+    lineHeight: 20,
+  },
+});
 
-// N'oubliez pas d'importer et configurer vos polices Inter_xxx
+export default CoinsPage;

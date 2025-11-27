@@ -15,3 +15,45 @@ web-build/
 
 # Temporary files created by Metro to check the health of the file watcher
 .metro-health-check*
+
+# Development tools
+*RAPPORT*.md
+*TRADUCTION*.md
+
+# AI assistants - Claude
+.claude/
+.claude*
+claude.md
+CLAUDE.md
+claude-*
+*claude*.md
+.anthropic/
+
+# AI assistants - Cursor
+.cursor/
+.cursorignore
+.cursorrules
+cursor.md
+
+# AI assistants - GitHub Copilot
+.copilot/
+copilot-*
+
+# AI assistants - Other
+.aider*
+.codeium/
+.tabnine/
+.kite/
+.sourcery/
+
+# Development scripts and temp files
+scripts/
+temp_*.js
+*_temp.js
+*.temp
+nul
+
+# Environment and secrets
+.env
+.env.*
+!.env.example

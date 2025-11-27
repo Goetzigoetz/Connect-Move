@@ -1,12 +1,16 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
+  TextInput,
   TouchableOpacity,
   Alert,
   ActivityIndicator,
   ScrollView,
   SafeAreaView,
+  StyleSheet,
+  Platform,
+  KeyboardAvoidingView,
 } from "react-native";
 import * as Location from "expo-location";
 import {
@@ -14,29 +18,36 @@ import {
   updateDoc,
   writeBatch,
   collection,
-  addDoc,
   serverTimestamp,
   increment,
   getDoc,
 } from "@react-native-firebase/firestore";
 import { auth, db } from "../../config/firebase";
-import { FontAwesome, Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { showMessage } from "react-native-flash-message";
-import Animated, { FadeInDown } from "react-native-reanimated";
-import i18n from "../../i18n";
+import { COLORS } from "../styles/colors";
+import { useThemeContext } from "../ThemeProvider";
+import { useTranslation } from "react-i18next";
+import { GOOGLE_MAP_API_GEOCODING } from "@env";
 
 const AddLocation = ({ route, navigation }) => {
   const newProfile = route?.params?.newProfile || false;
-  const [loading, setLoading] = useState(true);
-  const [locationDetails, setLocationDetails] = useState(null);
+  const { isDarkMode } = useThemeContext();
+  const { t } = useTranslation();
+  const scrollViewRef = useRef(null);
+
+  const [loading, setLoading] = useState(false);
+  const [loadingLocation, setLoadingLocation] = useState(false);
   const [existingLocation, setExistingLocation] = useState(null);
+  const [location, setLocation] = useState({
+    address: "",
+    city: "",
+    country: "",
+    latitude: null,
+    longitude: null,
+  });
 
   useEffect(() => {
-    if (newProfile) {
-      handleGetLocation();
-    }
-    setLoading(false);
-
     const fetchUserLocation = async () => {
       try {
         setLoading(true);
@@ -47,13 +58,18 @@ const AddLocation = ({ route, navigation }) => {
         const userDoc = await getDoc(doc(db, "users", currentUser.uid));
 
         if (userDoc.exists() && userDoc.data().location) {
-          setExistingLocation(userDoc.data().location);
+          const existingLoc = userDoc.data().location;
+          setExistingLocation(existingLoc);
+          setLocation({
+            address: existingLoc.address || "",
+            city: existingLoc.city || "",
+            country: existingLoc.country || "",
+            latitude: existingLoc.latitude || null,
+            longitude: existingLoc.longitude || null,
+          });
         }
       } catch (error) {
-        console.error(
-          "Erreur lors de la récupération de l'emplacement :",
-          error
-        );
+        console.error("Erreur lors de la récupération de l'emplacement :", error);
       } finally {
         setLoading(false);
       }
@@ -62,74 +78,132 @@ const AddLocation = ({ route, navigation }) => {
     fetchUserLocation();
   }, []);
 
-  const handleGetLocation = async () => {
-    try {
-      setLoading(true);
+  const handleInputFocus = () => {
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({ y: 100, animated: true });
+    }, 100);
+  };
 
-      // Demander la permission pour accéder à l'emplacement
+  const requestLocationPermission = async () => {
+    try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        showMessage({
-          message:
-            "Nous avons besoin de votre emplacement pour améliorer votre expérience.",
-          type: "danger",
+      return status === "granted";
+    } catch (error) {
+      console.error("Erreur lors de la demande de permission:", error);
+      return false;
+    }
+  };
+
+  const getAddressFromCoordinates = async (latitude, longitude) => {
+    try {
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_MAP_API_GEOCODING}`
+      );
+      const data = await response.json();
+
+      if (data.results && data.results.length > 0) {
+        const result = data.results[0];
+        const addressComponents = result.address_components;
+
+        let streetNumber = "";
+        let route = "";
+        let city = "";
+        let country = "";
+
+        addressComponents.forEach((component) => {
+          if (component.types.includes("street_number")) {
+            streetNumber = component.long_name;
+          }
+          if (component.types.includes("route")) {
+            route = component.long_name;
+          }
+          if (component.types.includes("locality")) {
+            city = component.long_name;
+          }
+          if (component.types.includes("country")) {
+            country = component.long_name;
+          }
         });
-        setLoading(false);
+
+        const streetAddress = [streetNumber, route].filter(Boolean).join(" ");
+
+        return {
+          address: streetAddress,
+          city,
+          country,
+          latitude,
+          longitude,
+        };
+      }
+      return null;
+    } catch (error) {
+      console.error("Erreur lors du géocodage:", error);
+      return null;
+    }
+  };
+
+  const handleUseCurrentLocation = async () => {
+    setLoadingLocation(true);
+
+    try {
+      const hasPermission = await requestLocationPermission();
+
+      if (!hasPermission) {
+        Alert.alert(
+          t("onboarding_step5_permission_denied"),
+          t("onboarding_step5_permission_message")
+        );
+        setLoadingLocation(false);
         return;
       }
 
-      // Obtenir l'emplacement actuelle
-      const location = await Location.getCurrentPositionAsync({});
-      const { latitude, longitude } = location.coords;
-
-      // Obtenir les détails de l'adresse via un géocodage inversé
-      const reverseGeocode = await Location.reverseGeocodeAsync({
-        latitude,
-        longitude,
+      const currentLocation = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
       });
 
-      if (reverseGeocode.length > 0) {
-        const { city, country, region, street } = reverseGeocode[0];
-        const address = `${street || "Adresse inconnue"}, ${
-          city || "Ville inconnue"
-        }, ${country || "Pays inconnu"}`;
+      const addressData = await getAddressFromCoordinates(
+        currentLocation.coords.latitude,
+        currentLocation.coords.longitude
+      );
 
-        const locationData = {
-          latitude,
-          longitude,
-          city,
-          country,
-          region,
-          address,
-        };
-
-        setLocationDetails(locationData);
+      if (addressData) {
+        setLocation(addressData);
+        showMessage({
+          message: t("onboarding_step5_success"),
+          type: "success",
+        });
+      } else {
+        showMessage({
+          message: t("onboarding_step5_error_address"),
+          type: "warning",
+        });
       }
     } catch (error) {
-      console.error("Erreur lors de la récupération de l'emplacement :", error);
+      console.error("Erreur lors de la géolocalisation:", error);
       showMessage({
-        message: "Impossible de récupérer l'emplacement.",
+        message: t("onboarding_step5_error_position"),
         type: "danger",
       });
     } finally {
-      setTimeout(() => {
-        setLoading(false);
-      }, 1000);
+      setLoadingLocation(false);
     }
   };
 
   const handleSaveLocation = async () => {
+    if (!location.address || !location.city) {
+      showMessage({
+        message: t("onboarding_step5_error"),
+        type: "warning",
+      });
+      return;
+    }
+
     try {
       setLoading(true);
       const currentUser = auth.currentUser;
 
       if (!currentUser) {
-        Alert.alert("Erreur", "Utilisateur non connecté.");
-        return;
-      }
-
-      if (!locationDetails) {
-        Alert.alert("Erreur", "Aucun emplacement à enregistrer.");
+        Alert.alert(t("erreur"), t("utilisateur_non_connecte"));
         return;
       }
 
@@ -138,28 +212,21 @@ const AddLocation = ({ route, navigation }) => {
 
       batch.update(userRef, {
         location: {
-          latitude: locationDetails.latitude,
-          longitude: locationDetails.longitude,
-          city: locationDetails.city,
-          country: locationDetails.country,
-          address: locationDetails.address,
+          latitude: location.latitude,
+          longitude: location.longitude,
+          city: location.city,
+          country: location.country,
+          address: location.address,
         },
       });
 
       if (newProfile) {
-        const currentUser = auth.currentUser;
-        const userRef = doc(db, "users", currentUser.uid);
-        const batch = writeBatch(db);
-
-        // Récupérer doc admin/defispoint
         const pointsDocRef = doc(db, "admin", "defispoint");
         const pointsSnapshot = await getDoc(pointsDocRef);
-        const points =
-          Number(pointsSnapshot.data()?.profil_completion_point) || 0;
+        const points = Number(pointsSnapshot.data()?.profil_completion_point) || 0;
 
-        // Ajouter défi dans defis
         const defisRef = collection(db, "defis");
-        const newDefiDoc = doc(defisRef); // nouveau doc avec id auto
+        const newDefiDoc = doc(defisRef);
 
         batch.set(newDefiDoc, {
           userId: currentUser.uid,
@@ -168,21 +235,19 @@ const AddLocation = ({ route, navigation }) => {
           points: points,
         });
 
-        // Mise à jour compteur pièces utilisateur
         batch.update(userRef, {
           pieces: increment(points),
         });
 
-        // Commit batch
         await batch.commit();
 
         Alert.alert(
-          "Des pièces en plus",
-          `Vous avez reçu ${points} pièces pour avoir complété votre profil.`
+          t("des_pieces_en_plus"),
+          t("pieces_recues_completion_profil", { points })
         );
+      } else {
+        await batch.commit();
       }
-
-      await batch.commit();
 
       if (newProfile) {
         navigation.reset({
@@ -197,15 +262,14 @@ const AddLocation = ({ route, navigation }) => {
       }
 
       showMessage({
-        message: "Emplacement mis à jour avec succès.",
+        message: t("emplacement_mis_a_jour_succes"),
         type: "success",
       });
       navigation.goBack();
-      setExistingLocation(locationDetails);
     } catch (error) {
       console.error("Erreur lors de l'enregistrement :", error);
       showMessage({
-        message: "Échec de l'enregistrement",
+        message: t("echec_enregistrement"),
         type: "danger",
       });
     } finally {
@@ -213,203 +277,342 @@ const AddLocation = ({ route, navigation }) => {
     }
   };
 
-  return (
-    <SafeAreaView className="flex-1 bg-white dark:bg-gray-900">
-      <ScrollView
-        contentContainerStyle={{ paddingBottom: 100 }}
-        showsVerticalScrollIndicator={false}
-      >
-        <View className="px-6 pt-6">
-          {/* Header */}
-          <Animated.View entering={FadeInDown.duration(400)} className="mb-8">
-            <Text
-              style={{ fontFamily: "Inter_500Medium" }}
-              className="text-3xl font-bold text-gray-900 dark:text-white mb-2"
-            >
-              {i18n.t("votre_localisation")}
-            </Text>
-            <Text
-              style={{ fontFamily: "Inter_400Regular" }}
-              className="text-gray-500 dark:text-gray-400 text-lg"
-            >
-              {i18n.t(
-                "definissez_votre_emplacement_pour_trouver_des_activites_pres_de_chez_vous"
-              )}
-            </Text>
-          </Animated.View>
+  if (loading) {
+    return (
+      <View style={[styles.loadingContainer, { backgroundColor: isDarkMode ? COLORS.bgDark : "#FFFFFF" }]}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={[styles.loadingText, { color: isDarkMode ? "#FFFFFF" : "#000000" }]}>
+          {t("chargement")}...
+        </Text>
+      </View>
+    );
+  }
 
-          {/* Carte de localisation actuelle */}
-          {existingLocation && (
-            <Animated.View
-              entering={FadeInDown.delay(200).duration(400)}
-              className="mb-6"
-            >
-              <View className="bg-blue-50 dark:bg-blue-900 rounded-2xl p-5">
-                <View className="flex-row items-center mb-4">
-                  <View className="w-10 h-10 bg-blue-100 dark:bg-blue-800 rounded-full items-center justify-center">
-                    <Ionicons name="location" size={24} color="#2563EB" />
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: isDarkMode ? COLORS.bgDark : "#FFFFFF" }]}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
+      >
+        <ScrollView
+          ref={scrollViewRef}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.content}>
+            {/* Header */}
+            <View style={styles.header}>
+              <Text style={[styles.headerTitle, { color: isDarkMode ? "#FFFFFF" : "#000000" }]}>
+                {t("votre_localisation")}
+              </Text>
+              <Text style={[styles.headerSubtitle, { color: isDarkMode ? "#71717A" : "#71717A" }]}>
+                {t("definissez_votre_emplacement_pour_trouver_des_activites_pres_de_chez_vous")}
+              </Text>
+            </View>
+
+            {/* Existing Location Card */}
+            {existingLocation && (
+              <View style={[styles.locationCard, { backgroundColor: isDarkMode ? COLORS.bgDarkSecondary : "#F0F9FF" }]}>
+                <View style={styles.cardHeader}>
+                  <View style={[styles.iconCircle, { backgroundColor: isDarkMode ? "#27272A" : "#DBEAFE" }]}>
+                    <Ionicons name="location" size={24} color={COLORS.primary} />
                   </View>
-                  <Text
-                    style={{ fontFamily: "Inter_400Regular" }}
-                    className="ml-3 text-lg font-semibold text-gray-900 dark:text-white"
-                  >
-                    {i18n.t("emplacement_actuel")}
+                  <Text style={[styles.cardTitle, { color: isDarkMode ? "#FFFFFF" : "#000000" }]}>
+                    {t("emplacement_actuel")}
                   </Text>
                 </View>
 
-                <View className="space-y-4">
-                  <View className="flex-row items-center">
-                    <Ionicons name="home-outline" size={20} color="#6B7280" />
-                    <Text
-                      style={{ fontFamily: "Inter_400Regular" }}
-                      className="ml-3 text-gray-600 dark:text-gray-300"
-                    >
+                <View style={styles.locationInfo}>
+                  <View style={styles.infoRow}>
+                    <Ionicons name="home-outline" size={20} color={isDarkMode ? "#A1A1AA" : "#71717A"} />
+                    <Text style={[styles.infoText, { color: isDarkMode ? "#E4E4E7" : "#3F3F46" }]}>
                       {existingLocation.address}
                     </Text>
                   </View>
 
-                  <View className="flex-row items-center">
-                    <Ionicons
-                      name="business-outline"
-                      size={20}
-                      color="#6B7280"
-                    />
-                    <Text
-                      style={{ fontFamily: "Inter_400Regular" }}
-                      className="ml-3 text-gray-600 dark:text-gray-300"
-                    >
+                  <View style={styles.infoRow}>
+                    <Ionicons name="business-outline" size={20} color={isDarkMode ? "#A1A1AA" : "#71717A"} />
+                    <Text style={[styles.infoText, { color: isDarkMode ? "#E4E4E7" : "#3F3F46" }]}>
                       {existingLocation.city}
                     </Text>
                   </View>
 
-                  <View className="flex-row items-center">
-                    <Ionicons name="flag-outline" size={20} color="#6B7280" />
-                    <Text
-                      style={{ fontFamily: "Inter_400Regular" }}
-                      className="ml-3 text-gray-600 dark:text-gray-300"
-                    >
+                  <View style={styles.infoRow}>
+                    <Ionicons name="flag-outline" size={20} color={isDarkMode ? "#A1A1AA" : "#71717A"} />
+                    <Text style={[styles.infoText, { color: isDarkMode ? "#E4E4E7" : "#3F3F46" }]}>
                       {existingLocation.country}
                     </Text>
                   </View>
                 </View>
               </View>
-            </Animated.View>
-          )}
-
-          {/* Nouvelle localisation */}
-          {locationDetails && (
-            <Animated.View
-              entering={FadeInDown.delay(400).duration(400)}
-              className="mb-6"
-            >
-              <View className="bg-green-50 dark:bg-green-900 rounded-2xl p-5">
-                <View className="flex-row items-center mb-4">
-                  <View className="w-10 h-10 bg-green-100 dark:bg-green-800 rounded-full items-center justify-center">
-                    <Ionicons name="locate" size={24} color="#059669" />
-                  </View>
-                  <Text
-                    style={{ fontFamily: "Inter_400Regular" }}
-                    className="ml-3 text-lg font-semibold text-gray-900 dark:text-white"
-                  >
-                    {i18n.t("nouvelle_position")}
-                  </Text>
-                </View>
-
-                <View className="space-y-4">
-                  <View className="flex-row items-center">
-                    <Ionicons name="home-outline" size={20} color="#059669" />
-                    <Text
-                      style={{ fontFamily: "Inter_400Regular" }}
-                      className="ml-3 text-gray-600 dark:text-gray-300"
-                    >
-                      {locationDetails.address}
-                    </Text>
-                  </View>
-
-                  <View className="flex-row items-center">
-                    <Ionicons
-                      name="business-outline"
-                      size={20}
-                      color="#059669"
-                    />
-                    <Text
-                      style={{ fontFamily: "Inter_400Regular" }}
-                      className="ml-3 text-gray-600 dark:text-gray-300"
-                    >
-                      {locationDetails.city}
-                    </Text>
-                  </View>
-
-                  <View className="flex-row items-center">
-                    <Ionicons name="flag-outline" size={20} color="#059669" />
-                    <Text
-                      style={{ fontFamily: "Inter_400Regular" }}
-                      className="ml-3 text-gray-600 dark:text-gray-300"
-                    >
-                      {locationDetails.country}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            </Animated.View>
-          )}
-
-          {/* Boutons d'action */}
-          <View className="space-y-4">
-            {locationDetails && (
-              <TouchableOpacity
-                className={`w-full p-4 rounded flex-row items-center justify-center ${
-                  loading
-                    ? "bg-gray-400 dark:bg-gray-600"
-                    : "bg-green-500 dark:bg-green-600"
-                }`}
-                onPress={handleSaveLocation}
-                disabled={loading}
-              >
-                <Ionicons
-                  name={loading ? "reload" : "checkmark-circle"}
-                  size={24}
-                  color="white"
-                />
-                <Text
-                  style={{ fontFamily: "Inter_400Regular" }}
-                  className="text-white  ml-2"
-                >
-                  {loading ? "Enregistrement..." : "Confirmer la position"}
-                </Text>
-              </TouchableOpacity>
             )}
 
+            {/* Geolocation Button */}
             <TouchableOpacity
-              className={`w-full mt-5 p-4 rounded flex-row items-center justify-center ${
-                loading
-                  ? "bg-gray-400 dark:bg-gray-600"
-                  : "bg-blue-500 dark:bg-blue-600"
-              }`}
-              onPress={handleGetLocation}
-              disabled={loading}
+              style={styles.geoButton}
+              onPress={handleUseCurrentLocation}
+              disabled={loadingLocation}
+              activeOpacity={0.7}
             >
-              <Ionicons
-                name={loading ? "reload" : "locate"}
-                size={24}
-                color="white"
-              />
-              <Text
-                style={{ fontFamily: "Inter_400Regular" }}
-                className="text-white  ml-2"
-              >
-                {loading
-                  ? "Localisation..."
-                  : existingLocation
-                  ? "Mettre à jour la position"
-                  : "Détecter ma position"}
+              {loadingLocation ? (
+                <ActivityIndicator color={COLORS.primary} />
+              ) : (
+                <>
+                  <Ionicons name="navigate-circle" size={24} color={COLORS.primary} />
+                  <Text style={[styles.geoButtonText, { color: COLORS.primary }]}>
+                    {t("onboarding_step5_use_location")}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            {/* Divider */}
+            <View style={styles.dividerContainer}>
+              <View style={[styles.dividerLine, { backgroundColor: isDarkMode ? "#27272A" : "#E4E4E7" }]} />
+              <Text style={[styles.dividerText, { color: isDarkMode ? "#A1A1AA" : "#71717A" }]}>
+                {t("onboarding_step5_or")}
               </Text>
+              <View style={[styles.dividerLine, { backgroundColor: isDarkMode ? "#27272A" : "#E4E4E7" }]} />
+            </View>
+
+            {/* Manual Input */}
+            <View style={styles.inputsContainer}>
+              <View style={styles.inputWrapper}>
+                <Text style={[styles.label, { color: isDarkMode ? "#E4E4E7" : "#3F3F46" }]}>
+                  {t("onboarding_step5_adresse_label")}
+                </Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: isDarkMode ? COLORS.bgDarkSecondary : "#F9FAFB",
+                      borderColor: isDarkMode ? "#27272A" : "#E4E4E7",
+                      color: isDarkMode ? "#FFFFFF" : "#000000",
+                    },
+                  ]}
+                  placeholder={t("onboarding_step5_adresse_placeholder")}
+                  placeholderTextColor={isDarkMode ? "#52525B" : "#A1A1AA"}
+                  value={location.address}
+                  onChangeText={(text) => setLocation({ ...location, address: text })}
+                  onFocus={handleInputFocus}
+                  autoCapitalize="words"
+                />
+              </View>
+
+              <View style={styles.inputWrapper}>
+                <Text style={[styles.label, { color: isDarkMode ? "#E4E4E7" : "#3F3F46" }]}>
+                  {t("onboarding_step5_ville_label")}
+                </Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: isDarkMode ? COLORS.bgDarkSecondary : "#F9FAFB",
+                      borderColor: isDarkMode ? "#27272A" : "#E4E4E7",
+                      color: isDarkMode ? "#FFFFFF" : "#000000",
+                    },
+                  ]}
+                  placeholder={t("onboarding_step5_ville_placeholder")}
+                  placeholderTextColor={isDarkMode ? "#52525B" : "#A1A1AA"}
+                  value={location.city}
+                  onChangeText={(text) => setLocation({ ...location, city: text })}
+                  onFocus={handleInputFocus}
+                  autoCapitalize="words"
+                />
+              </View>
+
+              <View style={styles.inputWrapper}>
+                <Text style={[styles.label, { color: isDarkMode ? "#E4E4E7" : "#3F3F46" }]}>
+                  {t("onboarding_step5_pays_label")}
+                </Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: isDarkMode ? COLORS.bgDarkSecondary : "#F9FAFB",
+                      borderColor: isDarkMode ? "#27272A" : "#E4E4E7",
+                      color: isDarkMode ? "#FFFFFF" : "#000000",
+                    },
+                  ]}
+                  placeholder={t("onboarding_step5_pays_placeholder")}
+                  placeholderTextColor={isDarkMode ? "#52525B" : "#A1A1AA"}
+                  value={location.country}
+                  onChangeText={(text) => setLocation({ ...location, country: text })}
+                  onFocus={handleInputFocus}
+                  autoCapitalize="words"
+                />
+              </View>
+            </View>
+
+            {/* Save Button */}
+            <TouchableOpacity
+              style={[
+                styles.saveButton,
+                {
+                  backgroundColor: COLORS.primary,
+                  opacity: loading || !location.address || !location.city ? 0.5 : 1,
+                },
+              ]}
+              onPress={handleSaveLocation}
+              disabled={loading || !location.address || !location.city}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+                  <Text style={styles.saveButtonText}>
+                    {newProfile ? t("continuer") : t("enregistrer")}
+                  </Text>
+                </>
+              )}
             </TouchableOpacity>
           </View>
-        </View>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 16,
+  },
+  loadingText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 16,
+  },
+  container: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 40,
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: Platform.OS === "ios" ? 20 : 40,
+  },
+  header: {
+    marginBottom: 24,
+  },
+  headerTitle: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 28,
+    letterSpacing: -0.8,
+    marginBottom: 8,
+  },
+  headerSubtitle: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  locationCard: {
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  iconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  cardTitle: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 16,
+  },
+  locationInfo: {
+    gap: 12,
+  },
+  infoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  infoText: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
+    flex: 1,
+  },
+  geoButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+    paddingVertical: 18,
+    borderRadius: 9999,
+    gap: 12,
+    marginBottom: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  geoButtonText: {
+    fontSize: 16,
+    fontFamily: "Inter_600SemiBold",
+  },
+  dividerContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+  },
+  dividerText: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    marginHorizontal: 16,
+  },
+  inputsContainer: {
+    gap: 16,
+    marginBottom: 24,
+  },
+  inputWrapper: {
+    gap: 8,
+  },
+  label: {
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
+  },
+  input: {
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    fontFamily: "Inter_400Regular",
+    borderWidth: 1,
+  },
+  saveButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 16,
+    borderRadius: 9999,
+    marginTop: 8,
+  },
+  saveButtonText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 16,
+    color: "#FFFFFF",
+  },
+});
 
 export default AddLocation;

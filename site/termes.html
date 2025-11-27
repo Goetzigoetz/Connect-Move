@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title data-i18n="title">CGU - Connect & Move</title>
+  <style>
+    :root {
+      --bg-color: #ffffff;
+      --text-color: #333333;
+      --accent-color: #ff6600;
+    }
+    .dark-mode {
+      --bg-color: #222222;
+      --text-color: #dddddd;
+    }
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      line-height: 1.6;
+    }
+    header {
+      background-color: var(--accent-color);
+      padding: 1rem;
+      text-align: center;
+      color: #fff;
+    }
+    nav {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    nav a {
+      margin: 0 1rem;
+      color: #fff;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    .container {
+      padding: 2rem;
+    }
+    .toggle-dark-mode {
+      position: fixed;
+      bottom: 1rem;
+      right: 1rem;
+      background-color: var(--accent-color);
+      color: #fff;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .lang-selector {
+      margin-left: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1 data-i18n="headerTitle">Connect & Move</h1>
+    <nav>
+      <a href="index.html" data-i18n="navHome">Accueil</a>
+      <a href="contacter.html" data-i18n="navVision">Contact</a>
+      <a href="termes.html" data-i18n="navTermes">CGU</a>
+      <a href="vie privee.html" data-i18n="navPrivacy">Confidentialité</a>
+      <a href="juridique.html" data-i18n="navLegal">Mentions Légales</a>
+      <select id="languageSelector" class="lang-selector" onchange="changeLanguage()">
+        <option value="fr" selected>Français</option>
+        <option value="en">English</option>
+        <option value="it">Italiano</option>
+      </select>
+    </nav>
+  </header>
+  <div class="container">
+    <h2 data-i18n="termsTitle">Conditions Générales d'Utilisation</h2>
+    <p data-i18n="termsText"></p>
+  </div>
+  <button class="toggle-dark-mode" onclick="toggleDarkMode()" data-i18n="darkModeButton">Mode sombre</button>
+  <script>
+    const translations = {
+      fr: {
+        title: "CGU - Connect & Move",
+        headerTitle: "Connect & Move",
+        navHome: "Accueil",
+        navVision: "Contact",
+        navTerms: "CGU",
+        navPrivacy: "Confidentialité",
+        navLegal: "Mentions Légales",
+        termsTitle: "Conditions Générales d'Utilisation",
+        termsText: "1. <strong>Introduction :</strong> En accédant et en utilisant ce site, tu acceptes les présentes Conditions Générales d’Utilisation. Ces conditions régissent l’accès et l’utilisation du site ainsi que de l’application.<br><br>2. <strong>Accès au site :</strong> L’accès au site est gratuit. Cependant, certains services ou contenus peuvent être réservés aux utilisateurs inscrits ou aux abonnés.<br><br>3. <strong>Propriété intellectuelle :</strong> L’ensemble du contenu (textes, images, logos, etc.) est protégé par le droit d’auteur et reste la propriété exclusive de Connect & Move. Toute reproduction ou utilisation sans autorisation est interdite.<br><br>4. <strong>Responsabilité :</strong> Le site est fourni « tel quel ». Connect & Move ne pourra être tenu responsable des erreurs, interruptions ou des dommages pouvant survenir lors de l’utilisation du site ou de l’application.<br><br>5. <strong>Modifications :</strong> Ces CGU peuvent être modifiées à tout moment. Il est recommandé de consulter régulièrement cette page pour être informé des changements.<br><br>6. <strong>Droit applicable :</strong> Ces conditions sont régies par le droit français. Tout litige sera soumis aux tribunaux compétents.",
+        darkModeButton: "Mode sombre"
+      },
+      en: {
+        title: "Terms of Use - Connect & Move",
+        headerTitle: "Connect & Move",
+        navHome: "Home",
+        navVision: "Contact",
+        navTerms: "Terms of Use",
+        navPrivacy: "Privacy Policy",
+        navLegal: "Legal Notice",
+        termsTitle: "Terms of Use",
+        termsText: "1. <strong>Introduction:</strong> By accessing and using this site, you agree to these General Terms and Conditions of Use. These conditions govern the access and use of the site and the application.<br><br>2. <strong>Access to the site:</strong> The site is free of charge. However, some services or content may be reserved for registered users or subscribers.<br><br>3. <strong>Intellectual Property:</strong> All content (texts, images, logos, etc.) is protected by copyright and remains the exclusive property of Connect & Move. Any reproduction or unauthorized use is prohibited.<br><br>4. <strong>Liability:</strong> The site is provided \"as is\". Connect & Move shall not be held responsible for errors, interruptions, or damages arising from the use of the site or application.<br><br>5. <strong>Modifications:</strong> These Terms may be modified at any time. It is recommended to check this page regularly for updates.<br><br>6. <strong>Applicable Law:</strong> These conditions are governed by French law. Any dispute will be subject to the jurisdiction of the competent courts.",
+        darkModeButton: "Dark Mode"
+      },
+      it: {
+        title: "Termini d'Uso - Connect & Move",
+        headerTitle: "Connect & Move",
+        navHome: "Home",
+        navVision: "Contactto",
+        navTerms: "Termini d'Uso",
+        navPrivacy: "Politica sulla Privacy",
+        navLegal: "Note Legali",
+        termsTitle: "Termini d'Uso",
+        termsText: "1. <strong>Introduzione:</strong> Accedendo e utilizzando questo sito, accetti questi Termini e Condizioni Generali d'Uso. Tali condizioni regolano l'accesso e l'uso del sito e dell'applicazione.<br><br>2. <strong>Accesso al sito:</strong> L'accesso al sito è gratuito. Tuttavia, alcuni servizi o contenuti potrebbero essere riservati agli utenti registrati o abbonati.<br><br>3. <strong>Proprietà intellettuale:</strong> Tutti i contenuti (testi, immagini, loghi, ecc.) sono protetti da copyright e rimangono di esclusiva proprietà di Connect & Move. Qualsiasi riproduzione o uso non autorizzato è vietato.<br><br>4. <strong>Responsabilità:</strong> Il sito è fornito \"così com'è\". Connect & Move non sarà ritenuto responsabile per errori, interruzioni o danni derivanti dall'uso del sito o dell'applicazione.<br><br>5. <strong>Modifiche:</strong> Questi Termini possono essere modificati in qualsiasi momento. Si consiglia di controllare regolarmente questa pagina per eventuali aggiornamenti.<br><br>6. <strong>Legge applicabile:</strong> Queste condizioni sono regolate dalla legge francese. Qualsiasi controversia sarà sottoposta alla giurisdizione dei tribunali competenti.",
+        darkModeButton: "Modalità scura"
+      }
+    };
+
+    function changeLanguage() {
+      const lang = document.getElementById("languageSelector").value;
+      document.documentElement.lang = lang;
+      document.title = translations[lang].title;
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (translations[lang][key]) {
+          el.innerHTML = translations[lang][key];
+        }
+      });
+    }
+
+    function toggleDarkMode() {
+      document.body.classList.toggle('dark-mode');
+    }
+
+    // Initialisation de la langue par défaut au chargement
+    changeLanguage();
+  </script>
+</body>
+</html>

@@ -5,6 +5,11 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 // IMPORTS DIRECTS DES FICHIERS JSON
 import fr from "./locales/fr/translation.json";
 import en from "./locales/en/translation.json";
+import de from "./locales/de/translation.json";
+import es from "./locales/es/translation.json";
+import it from "./locales/it/translation.json";
+import cn from "./locales/cn/translation.json";
+import jp from "./locales/jp/translation.json";
 
 const STORE_LANGUAGE_KEY = "settings.lang";
 
@@ -36,6 +41,11 @@ const languageDetectorPlugin = {
 const resources = {
   fr: { translation: fr },
   en: { translation: en },
+  de: { translation: de },
+  es: { translation: es },
+  it: { translation: it },
+  cn: { translation: cn },
+  jp: { translation: jp },
 };
 
 i18n

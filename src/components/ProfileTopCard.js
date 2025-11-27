@@ -203,7 +203,7 @@ export default function ProfileTopCard({ userInfo, getUserInfo }) {
         <TouchableOpacity
           activeOpacity={userInfo ? 0.7 : 1}
           onPress={() =>
-            userInfo ? pickImage() : navigation.navigate("Landing")
+            userInfo ? pickImage() : navigation.navigate("Login")
           }
           className="self-start w-full relative flex-row items-center justify-between"
         >
@@ -226,7 +226,7 @@ export default function ProfileTopCard({ userInfo, getUserInfo }) {
             </Text>
           ) : (
             <TouchableOpacity
-              onPress={() => navigation.navigate("Landing")}
+              onPress={() => navigation.navigate("Login")}
               activeOpacity={0.8}
             >
               <LinearGradient

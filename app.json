@@ -1,9 +1,9 @@
 {
   "expo": {
     "newArchEnabled": true,
-    "name": "C&M",
+    "name": "Connect & Move",
     "slug": "connectandmove",
-    "version": "2.4.0",
+    "version": "2.7.0",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
     "userInterfaceStyle": "automatic",
@@ -33,7 +33,15 @@
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Votre localisation sera utilisée pour identifier les lieux de rencontre les plus proches",
         "NSPhotoLibraryAddUsageDescription": "L'accès à votre bibliothèque vous permet de sélectionner une photo de profil.",
         "NSPhotoLibraryUsageDescription": "L'accès à votre bibliothèque vous permet de sélectionner une photo de profil.",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "SKAdNetworkItems": [
+          {
+            "SKAdNetworkIdentifier": "v9wttpbfk9.skadnetwork"
+          },
+          {
+            "SKAdNetworkIdentifier": "n38lu8286q.skadnetwork"
+          }
+        ]
       },
       "config": {
         "googleMapsApiKey": "AIzaSyAGiSiBGEsvDTKyfQxlhgD3BFKYHp1cYKQ"
@@ -46,7 +54,7 @@
         "backgroundColor": "#F97316"
       },
       "package": "com.connectandmove",
-      "versionCode": 6,
+      "versionCode": 10,
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyAGiSiBGEsvDTKyfQxlhgD3BFKYHp1cYKQ"
@@ -84,18 +92,6 @@
             "deploymentTarget": "15.1",
             "useFrameworks": "static"
           }
-        }
-      ],
-      [
-        "react-native-fbsdk-next",
-        {
-          "appID": "1054937686441291",
-          "scheme": "fb1054937686441291",
-          "clientToken": "d60a5aea1d0b07cbd6ee0e05c974ea77",
-          "displayName": "ConnectMove",
-          "advertiserIDCollectionEnabled": false,
-          "autoLogAppEventsEnabled": false,
-          "isAutoInitEnabled": true
         }
       ],
       [

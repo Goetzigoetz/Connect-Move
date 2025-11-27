@@ -26,8 +26,21 @@ const CURRENCY = "FCFA";
 //   return result + " " + CURRENCY;
 // }
 
-const createUniqueUsername = (email) => {
-  const baseUsername = email.split("@")[0];
+const createUniqueUsername = (email, phoneNumber = null) => {
+  let baseUsername;
+
+  if (email) {
+    // Si on a un email, utiliser la partie avant @
+    baseUsername = email.split("@")[0];
+  } else if (phoneNumber) {
+    // Si on a un numéro de téléphone, utiliser les derniers chiffres
+    const cleanPhone = phoneNumber.replace(/[^\d]/g, ""); // Enlever tout sauf les chiffres
+    baseUsername = `user${cleanPhone.slice(-6)}`; // Utiliser les 6 derniers chiffres
+  } else {
+    // Si ni email ni téléphone, générer un username aléatoire
+    baseUsername = `user${Date.now().toString().slice(-6)}`;
+  }
+
   const randomSuffix = Math.floor(Math.random() * 1000)
     .toString()
     .padStart(3, "0");

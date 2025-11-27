@@ -2,11 +2,14 @@ import React, { useCallback, useEffect, useState } from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import * as Haptics from "expo-haptics";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import Animated, { useAnimatedStyle, withSpring, withTiming, useSharedValue } from "react-native-reanimated";
+import { useTranslation } from "react-i18next";
 // Import des écrans
 import Home from "../screens/Home";
 import Profile from "../screens/Profile";
 import EditProfile from "../screens/EditProfile";
+import EditBio from "../screens/EditBio";
 import AddInterest from "../screens/AddInterest";
 import ActivityDetails from "../screens/ActivityDetails";
 import Partners from "../screens/Partners";
@@ -15,10 +18,18 @@ import Events from "../screens/Events";
 import Conversations from "../screens/Conversations";
 import Chat from "../screens/Chat";
 import AddPhoneNumberPage from "../screens/AddPhoneNumberPage";
-import { Platform, StyleSheet, TouchableOpacity, View } from "react-native";
+import AddComment from "../screens/AddComment";
+import {
+  Platform,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+  ActivityIndicator,
+  Text,
+} from "react-native";
 import { COLORS } from "../styles/colors";
 import MainStepIndicator from "../screens/AddEvent/MainStepIndicator";
-import Categories from "../screens/Categories";
+import FilterScreen from "../screens/FilterScreen";
 import MyEvents from "../screens/MyEvents";
 import WriteReview from "../screens/WriteReview";
 import EditEvent from "../screens/EditEvent";
@@ -30,48 +41,76 @@ import Friends from "../screens/Friends";
 import ChatWithFriend from "../screens/ChatWithFriend";
 import Participants from "../screens/Participants";
 import AllOffers from "../screens/AllOffers";
-import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import PaymentResultScreen from "../screens/PaymentResultScreen";
+import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
 import CoinsPage from "../screens/CoinsPage";
 import Notifications from "../screens/Notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Statistiques from "../screens/Statistiques";
 import Step6 from "../screens/AddEvent/Step6";
 import DefisScreen from "../screens/DefisScreen";
-import { useColorScheme } from "nativewind";
+import { useThemeContext } from "../ThemeProvider";
 import LegalPage from "../screens/LegalPage";
 import ClufPage from "../screens/ClufPage";
 import ReportReasonScreen from "../screens/ReportReasonScreen";
 import { getScreenOptions } from "./screenOptions";
 import { doc, getDoc } from "@react-native-firebase/firestore";
 import CodePromo from "../screens/CodePromo";
-import ConfirmEmail from "../screens/Auth/ConfirmEmail";
 import BloqueCompte from "../screens/Auth/BloqueCompte";
+import VerifyEmail from "../screens/Auth/VerifyEmail";
+import LanguageSettings from "../screens/LanguageSettings";
+import ThemeSettings from "../screens/ThemeSettings";
+import OnboardingFlow from "../screens/Auth/OnboardingFlow";
+import ContactUs from "../screens/ContactUs";
+import DeleteAccountScreen from "../screens/DeleteAccountScreen";
 import { auth, db } from "../../config/firebase";
+import OnboardingSkeleton from "../components/OnboardingSkeleton";
+import CustomTabBar from "../components/CustomTabBar";
+import SwipeableTabScreen from "../components/SwipeableTabScreen";
+
+// Context pour forcer le rechargement du Navigator
+export const NavigatorRefreshContext = React.createContext(null);
+
 // Déclarez les navigateurs
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
+// Root Stack qui contient le Tab Navigator et l'OnboardingFlow
+const RootStack = createNativeStackNavigator();
+
 const HomeStack = () => {
   const navigation = useNavigation();
-  const { colorScheme } = useColorScheme();
-  const isDarkMode = colorScheme === "dark";
+  const { isDarkMode } = useThemeContext();
+  const { t, i18n } = useTranslation();
+
   return (
-    <Stack.Navigator screenOptions={getScreenOptions({ isDarkMode })}>
+    <Stack.Navigator
+      key={i18n.language}
+      screenOptions={{
+        ...getScreenOptions({ isDarkMode }),
+        headerBackTitle: "",
+        animation: "slide_from_right",
+        gestureEnabled: true,
+        gestureDirection: "horizontal",
+        fullScreenGestureEnabled: true,
+      }}
+    >
       <Stack.Screen
         name="Home"
         component={Home}
         options={{
-          title: "Accueil",
+          title: t("accueil"),
           headerTitle: "",
+          headerBackTitle: "",
         }}
       />
       <Stack.Screen
         name="ClufPage"
         component={ClufPage}
         options={{
-          presentation: "modal",
-          title: "Conditions d'utilisation",
+          animation: "fade_from_bottom",
           title: "",
+          headerBackTitle: "",
         }}
       />
 
@@ -81,6 +120,7 @@ const HomeStack = () => {
         options={{
           title: "",
           headerTitle: "",
+          headerBackTitle: "",
         }}
       />
 
@@ -88,7 +128,8 @@ const HomeStack = () => {
         name="MyEvents"
         component={MyEvents}
         options={{
-          title: "Mes évènements",
+          title: t("mes_evenements"),
+          headerBackTitle: "",
         }}
       />
       <Stack.Screen
@@ -96,7 +137,8 @@ const HomeStack = () => {
         component={Friends}
         options={{
           title: "",
-          headerTitle: "Partenaires",
+          headerTitle: t("partenaires"),
+          headerBackTitle: "",
         }}
       />
 
@@ -106,6 +148,7 @@ const HomeStack = () => {
         options={{
           title: "",
           headerTitle: "",
+          headerBackTitle: "",
         }}
       />
 
@@ -115,14 +158,19 @@ const HomeStack = () => {
         options={{
           title: "",
           headerTitle: "",
+          headerBackTitle: "",
         }}
       />
 
       <Stack.Screen
-        name="Categories"
-        component={Categories}
+        name="FilterScreen"
+        component={FilterScreen}
         options={{
-          title: "",
+          headerShown: false,
+          gestureEnabled: true,
+          gestureDirection: "vertical",
+          presentation: "transparentModal",
+          animation: "fade",
         }}
       />
 
@@ -132,31 +180,28 @@ const HomeStack = () => {
         options={{
           title: "",
           headerTitle: "",
+          headerBackTitle: "",
         }}
       />
 
       <Stack.Screen
-        name="ConfirmEmail"
-        component={ConfirmEmail}
+        name="AddComment"
+        component={AddComment}
         options={{
+          headerShown: false,
           title: "",
           headerTitle: "",
+          presentation: "modal",
+          animation: "slide_from_bottom",
         }}
       />
 
-      <Stack.Screen
-        name="BloqueCompte"
-        component={BloqueCompte}
-        options={{
-          title: "",
-          headerTitle: "",
-        }}
-      />
       <Stack.Screen
         name="ActivityDetails"
         component={ActivityDetails}
         options={{
           title: "",
+          headerBackTitle: "",
         }}
       />
 
@@ -164,8 +209,9 @@ const HomeStack = () => {
         name="Step6"
         component={Step6}
         options={{
-          presentation: "modal",
-          title: "Paiement",
+          animation: "slide_from_bottom",
+          title: t("paiement"),
+          headerBackTitle: "",
         }}
       />
 
@@ -174,7 +220,8 @@ const HomeStack = () => {
         component={Participants}
         options={{
           title: "",
-          headerTitle: "Participants",
+          headerTitle: t("participants"),
+          headerBackTitle: "",
         }}
       />
       <Stack.Screen
@@ -182,13 +229,23 @@ const HomeStack = () => {
         component={Conversations}
         options={{
           title: "",
+          headerBackTitle: "",
         }}
       />
       <Stack.Screen
         name="Chat"
         component={Chat}
         options={{
-          title: "Messages",
+          title: t("messages"),
+          headerBackTitle: "",
+        }}
+      />
+      <Stack.Screen
+        name="EditEvent"
+        component={EditEvent}
+        options={{
+          title: t("modifier"),
+          headerBackTitle: "",
         }}
       />
     </Stack.Navigator>
@@ -196,16 +253,28 @@ const HomeStack = () => {
 };
 
 const PartenerStack = () => {
-  const { colorScheme } = useColorScheme();
-  const isDarkMode = colorScheme === "dark";
+  const { isDarkMode } = useThemeContext();
+  const { t, i18n } = useTranslation();
+
   return (
-    <Stack.Navigator screenOptions={getScreenOptions({ isDarkMode })}>
+    <Stack.Navigator
+      key={i18n.language}
+      screenOptions={{
+        ...getScreenOptions({ isDarkMode }),
+        headerBackTitle: "",
+        animation: "slide_from_right",
+        gestureEnabled: true,
+        gestureDirection: "horizontal",
+        fullScreenGestureEnabled: true,
+      }}
+    >
       <Stack.Screen
         name="Friends"
         component={Friends}
         options={{
           title: "",
-          headerTitle: "Partenaires",
+          headerTitle: t("partenaires"),
+          headerBackTitle: "",
         }}
       />
 
@@ -214,7 +283,8 @@ const PartenerStack = () => {
         component={Partners}
         options={{
           title: "",
-          // headerTitle: "Trouver des partenaires",
+          headerBackTitle: "",
+          // headerTitle: t("trouver_des_partenaires"),
         }}
       />
 
@@ -224,6 +294,7 @@ const PartenerStack = () => {
         options={{
           title: "",
           headerTitle: "",
+          headerBackTitle: "",
         }}
       />
     </Stack.Navigator>
@@ -232,18 +303,28 @@ const PartenerStack = () => {
 
 // Créez un stack pour Profile (si besoin de navigation spécifique)
 const ProfileStack = () => {
-  const { colorScheme } = useColorScheme();
-  const isDarkMode = colorScheme === "dark";
+  const { isDarkMode } = useThemeContext();
+  const { t, i18n } = useTranslation();
+
   return (
     <Stack.Navigator
+      key={i18n.language}
       initialRouteName="Profile"
-      screenOptions={getScreenOptions({ isDarkMode })}
+      screenOptions={{
+        ...getScreenOptions({ isDarkMode }),
+        headerBackTitle: "",
+        animation: "slide_from_right",
+        gestureEnabled: true,
+        gestureDirection: "horizontal",
+        fullScreenGestureEnabled: true,
+      }}
     >
       <Stack.Screen
         name="Profile"
         component={Profile}
         options={{
-          title: "Mon profil",
+          title: t("mon_profil"),
+          headerBackTitle: "",
         }}
       />
 
@@ -253,6 +334,7 @@ const ProfileStack = () => {
         options={{
           title: "",
           headerTitle: "",
+          headerBackTitle: "",
         }}
       />
 
@@ -260,7 +342,8 @@ const ProfileStack = () => {
         name="MyEvents"
         component={MyEvents}
         options={{
-          title: "Mes évènements",
+          title: t("mes_evenements"),
+          headerBackTitle: "",
         }}
       />
 
@@ -269,6 +352,7 @@ const ProfileStack = () => {
         component={CoinsPage}
         options={{
           title: "",
+          headerBackTitle: "",
         }}
       />
 
@@ -277,6 +361,7 @@ const ProfileStack = () => {
         component={WriteReview}
         options={{
           title: "",
+          headerBackTitle: "",
         }}
       />
       <Stack.Screen
@@ -284,6 +369,7 @@ const ProfileStack = () => {
         component={HowItsWork}
         options={{
           title: "",
+          headerBackTitle: "",
         }}
       />
       <Stack.Screen
@@ -291,6 +377,7 @@ const ProfileStack = () => {
         component={MyCard}
         options={{
           title: "",
+          headerBackTitle: "",
         }}
       />
 
@@ -299,6 +386,7 @@ const ProfileStack = () => {
         component={History}
         options={{
           title: "",
+          headerBackTitle: "",
         }}
       />
 
@@ -306,7 +394,8 @@ const ProfileStack = () => {
         name="EditEvent"
         component={EditEvent}
         options={{
-          title: "Modifier",
+          title: t("modifier"),
+          headerBackTitle: "",
         }}
       />
 
@@ -316,6 +405,15 @@ const ProfileStack = () => {
         initialParams={{ newProfile: false }}
         options={{
           title: "",
+          headerBackTitle: "",
+        }}
+      />
+      <Stack.Screen
+        name="EditBio"
+        component={EditBio}
+        options={{
+          title: "",
+          headerBackTitle: "",
         }}
       />
       <Stack.Screen
@@ -323,6 +421,7 @@ const ProfileStack = () => {
         component={AddInterest}
         options={{
           title: "",
+          headerBackTitle: "",
         }}
       />
 
@@ -331,6 +430,7 @@ const ProfileStack = () => {
         component={AddLocation}
         options={{
           title: "",
+          headerBackTitle: "",
         }}
       />
       <Stack.Screen
@@ -338,183 +438,558 @@ const ProfileStack = () => {
         component={AddPhoneNumberPage}
         options={{
           title: "",
+          headerBackTitle: "",
         }}
       />
       <Stack.Screen
         name="ReferralPage"
         component={ReferralPage}
         options={{
-          title: "Parrainer",
+          title: t("parrainer"),
+          headerBackTitle: "",
         }}
       />
       <Stack.Screen
         name="CodePromo"
         component={CodePromo}
         options={{
-          title: "Entrer un code promo",
+          title: t("entrer_code_promo"),
+          headerBackTitle: "",
         }}
       />
       <Stack.Screen
         name="LegalPage"
         component={LegalPage}
         options={{
-          title: "Documents",
+          title: t(""),
+          headerBackTitle: "",
+        }}
+      />
+      <Stack.Screen
+        name="LanguageSettings"
+        component={LanguageSettings}
+        options={{
+          title: "",
+          headerBackTitle: "",
+        }}
+      />
+      <Stack.Screen
+        name="ThemeSettings"
+        component={ThemeSettings}
+        options={{
+          title: "",
+          headerBackTitle: "",
+        }}
+      />
+      <Stack.Screen
+        name="ContactUs"
+        component={ContactUs}
+        options={{
+          title: "",
+          headerBackTitle: "",
+        }}
+      />
+      <Stack.Screen
+        name="DeleteAccountScreen"
+        component={DeleteAccountScreen}
+        options={{
+          title: "",
+          headerBackTitle: "",
         }}
       />
     </Stack.Navigator>
   );
 };
 
+// Wrappers pour chaque écran de tab avec swipe
+const HomeStackWithSwipe = ({ navigation, tabRoutes }) => {
+  const currentIndex = tabRoutes.findIndex(route => route === 'Activités');
+
+  return (
+    <SwipeableTabScreen
+      onSwipeLeft={() => {
+        if (currentIndex < tabRoutes.length - 1) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          navigation.navigate(tabRoutes[currentIndex + 1]);
+        }
+      }}
+      onSwipeRight={() => {
+        if (currentIndex > 0) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          navigation.navigate(tabRoutes[currentIndex - 1]);
+        }
+      }}
+    >
+      <HomeStack />
+    </SwipeableTabScreen>
+  );
+};
+
+const PartenerStackWithSwipe = ({ navigation, tabRoutes }) => {
+  const currentIndex = tabRoutes.findIndex(route => route === 'Partenaires');
+
+  return (
+    <SwipeableTabScreen
+      onSwipeLeft={() => {
+        if (currentIndex < tabRoutes.length - 1) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          navigation.navigate(tabRoutes[currentIndex + 1]);
+        }
+      }}
+      onSwipeRight={() => {
+        if (currentIndex > 0) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          navigation.navigate(tabRoutes[currentIndex - 1]);
+        }
+      }}
+    >
+      <PartenerStack />
+    </SwipeableTabScreen>
+  );
+};
+
+const StatistiquesWithSwipe = ({ navigation, tabRoutes }) => {
+  const currentIndex = tabRoutes.findIndex(route => route === 'Statistiques');
+
+  return (
+    <SwipeableTabScreen
+      onSwipeLeft={() => {
+        if (currentIndex < tabRoutes.length - 1) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          navigation.navigate(tabRoutes[currentIndex + 1]);
+        }
+      }}
+      onSwipeRight={() => {
+        if (currentIndex > 0) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          navigation.navigate(tabRoutes[currentIndex - 1]);
+        }
+      }}
+    >
+      <Statistiques />
+    </SwipeableTabScreen>
+  );
+};
+
+const EventsWithSwipe = ({ navigation, tabRoutes }) => {
+  const currentIndex = tabRoutes.findIndex(route => route === 'Événements');
+
+  return (
+    <SwipeableTabScreen
+      onSwipeLeft={() => {
+        if (currentIndex < tabRoutes.length - 1) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          navigation.navigate(tabRoutes[currentIndex + 1]);
+        }
+      }}
+      onSwipeRight={() => {
+        if (currentIndex > 0) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          navigation.navigate(tabRoutes[currentIndex - 1]);
+        }
+      }}
+    >
+      <Events navigation={navigation} />
+    </SwipeableTabScreen>
+  );
+};
+
+const ProfileStackWithSwipe = ({ navigation, tabRoutes }) => {
+  const currentIndex = tabRoutes.findIndex(route => route === 'Profil');
+
+  return (
+    <SwipeableTabScreen
+      onSwipeLeft={() => {
+        if (currentIndex < tabRoutes.length - 1) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          navigation.navigate(tabRoutes[currentIndex + 1]);
+        }
+      }}
+      onSwipeRight={() => {
+        if (currentIndex > 0) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          navigation.navigate(tabRoutes[currentIndex - 1]);
+        }
+      }}
+    >
+      <ProfileStack />
+    </SwipeableTabScreen>
+  );
+};
+
+const MainStepIndicatorWithSwipe = ({ navigation, tabRoutes }) => {
+  const route = useRoute();
+  const currentIndex = tabRoutes.findIndex(route => route === 'MainStepIndicator');
+
+  return (
+    <SwipeableTabScreen
+      onSwipeLeft={() => {
+        if (currentIndex < tabRoutes.length - 1) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          navigation.navigate(tabRoutes[currentIndex + 1]);
+        }
+      }}
+      onSwipeRight={() => {
+        if (currentIndex > 0) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          navigation.navigate(tabRoutes[currentIndex - 1]);
+        }
+      }}
+    >
+      <MainStepIndicator navigation={navigation} route={route} />
+    </SwipeableTabScreen>
+  );
+};
+
+// Créer un contexte pour partager tabRoutes
+const TabRoutesContext = React.createContext([]);
+
+// Modifier les wrappers pour utiliser le contexte
+const HomeStackSwipeable = ({ navigation }) => {
+  const tabRoutes = React.useContext(TabRoutesContext);
+  return <HomeStackWithSwipe navigation={navigation} tabRoutes={tabRoutes} />;
+};
+
+const PartenerStackSwipeable = ({ navigation }) => {
+  const tabRoutes = React.useContext(TabRoutesContext);
+  return <PartenerStackWithSwipe navigation={navigation} tabRoutes={tabRoutes} />;
+};
+
+const MainStepIndicatorSwipeable = ({ navigation }) => {
+  const tabRoutes = React.useContext(TabRoutesContext);
+  return <MainStepIndicatorWithSwipe navigation={navigation} tabRoutes={tabRoutes} />;
+};
+
+const StatistiquesSwipeable = ({ navigation }) => {
+  const tabRoutes = React.useContext(TabRoutesContext);
+  return <StatistiquesWithSwipe navigation={navigation} tabRoutes={tabRoutes} />;
+};
+
+const EventsSwipeable = ({ navigation }) => {
+  const tabRoutes = React.useContext(TabRoutesContext);
+  return <EventsWithSwipe navigation={navigation} tabRoutes={tabRoutes} />;
+};
+
+const ProfileStackSwipeable = ({ navigation }) => {
+  const tabRoutes = React.useContext(TabRoutesContext);
+  return <ProfileStackWithSwipe navigation={navigation} tabRoutes={tabRoutes} />;
+};
+
 // Navigateur principal avec les tabs
-// Map pour associer les noms de route aux icônes
-const screenIconMapping = {
-  Activités: "search-outline",
-  Partenaires: "people-outline",
-  MainStepIndicator: "add-outline", // Utilisé comme fallback, mais surchargé
-  Événements: "calendar-outline",
-  Profil: "person-outline",
-  Statistiques: "stats-chart-outline",
-};
+const TabNavigator = ({ sub }) => {
+  const userSub = sub;
+  const { t, i18n } = useTranslation();
 
-// Options communes pour les écrans texte (peut être étendu)
-const commonHeaderOptions = {
-  headerTitleStyle: {
-    fontSize: 15,
-    fontFamily: "Inter_500Medium",
-  },
-};
-
-const Navigator = ({ sub }) => {
-  const userSub = sub; // Utilisation directe de la prop
-
-  // Si pas de niveau d'abonnement, ne rien rendre (ou un écran de chargement/erreur)
   if (!userSub) {
     return null;
   }
 
-  const inactiveTintColor = COLORS.inactiveLight;
-  const { colorScheme } = useColorScheme();
-  const isDarkMode = colorScheme === "dark";
+  // Liste des routes pour le swipe (dans l'ordre)
+  const tabRoutes = [];
+
+  // Construire la liste des routes selon l'abonnement
+  tabRoutes.push('Activités');
+  if (userSub !== "pro") tabRoutes.push('Partenaires');
+  if (userSub === "premium" || userSub === "pro") tabRoutes.push('MainStepIndicator');
+  if (userSub === "pro") tabRoutes.push('Statistiques');
+  if (userSub !== "pro") tabRoutes.push('Événements');
+  tabRoutes.push('Profil');
 
   return (
-    <Tab.Navigator
-      screenOptions={({ route }) => ({
-        headerShown: false,
-        tabBarIcon: ({ color, size }) => {
-          const iconName =
-            screenIconMapping[route.name] || "help-circle-outline";
-          if (route.name === "MainStepIndicator") return null;
-          return (
-            <Ionicons
-              name={iconName}
-              size={Platform.OS == "ios" ? 26 : 22}
-              color={color}
-            />
+    <TabRoutesContext.Provider value={tabRoutes}>
+      <Tab.Navigator
+        key={i18n.language}
+        tabBar={(props) => <CustomTabBar {...props} />}
+        screenOptions={{
+          headerShown: false,
+        }}
+      >
+        {/* Écran Activités (toujours visible) */}
+        <Tab.Screen
+          name="Activités"
+          component={HomeStackSwipeable}
+          options={{ title: t("accueil") }}
+        />
+
+        {/* Écran Partenaires (visible sauf pour 'pro') */}
+        {userSub !== "pro" && (
+          <Tab.Screen
+            name="Partenaires"
+            component={PartenerStackSwipeable}
+            options={{ title: t("partenaires") }}
+          />
+        )}
+
+        {/* Écran Créer (visible pour 'premium' et 'pro') */}
+        {(userSub === "premium" || userSub === "pro") && (
+          <Tab.Screen
+            name="MainStepIndicator"
+            component={MainStepIndicatorSwipeable}
+            initialParams={{ userSUB: userSub }}
+            options={{ title: t("creer") }}
+          />
+        )}
+
+        {/* Écran Statistiques (visible seulement pour 'pro') */}
+        {userSub === "pro" && (
+          <Tab.Screen
+            name="Statistiques"
+            component={StatistiquesSwipeable}
+            options={{ title: t("statistiques") }}
+          />
+        )}
+
+        {/* Écran Événements (visible sauf pour 'pro') */}
+        {userSub !== "pro" && (
+          <Tab.Screen
+            name="Événements"
+            component={EventsSwipeable}
+            options={{ title: t("agenda") }}
+          />
+        )}
+
+        {/* Écran Profil (toujours visible) */}
+        <Tab.Screen
+          name="Profil"
+          component={ProfileStackSwipeable}
+          options={{ title: t("compte") }}
+        />
+      </Tab.Navigator>
+    </TabRoutesContext.Provider>
+  );
+};
+
+// Composant Navigator principal qui gère la redirection onboarding
+const Navigator = ({ sub }) => {
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [shouldShowOnboarding, setShouldShowOnboarding] = useState(false);
+  const [shouldShowEmailVerification, setShouldShowEmailVerification] = useState(false);
+  const [shouldShowBlockedAccount, setShouldShowBlockedAccount] = useState(false);
+  const [onboardingParams, setOnboardingParams] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    checkOnboardingStatus();
+  }, [refreshKey]);
+
+  const checkOnboardingStatus = async () => {
+    try {
+      const user = auth.currentUser;
+
+      if (!user) {
+        // Pas d'utilisateur connecté - ne devrait pas arriver
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        setIsInitialized(true);
+        return;
+      }
+
+      const userRef = doc(db, "users", user.uid);
+      const docSnapshot = await getDoc(userRef);
+
+      if (docSnapshot.exists()) {
+        const userData = docSnapshot.data();
+        const isActive = userData.isActive !== false; // true par défaut
+        const hasCompletedOnboarding = userData.onboardingCompleted === true;
+        const emailVerified = userData.emailVerified === true;
+
+        // VÉRIFICATION 1: Compte bloqué (priorité maximale)
+        if (!isActive) {
+          console.log("🚫 Compte bloqué - redirection vers BloqueCompte");
+          setShouldShowBlockedAccount(true);
+          setShouldShowOnboarding(false);
+          setShouldShowEmailVerification(false);
+          // Pas de délai pour les comptes bloqués
+          setIsInitialized(true);
+          return;
+        }
+        // VÉRIFICATION 2: Onboarding incomplet
+        else if (!hasCompletedOnboarding) {
+          console.log(
+            "🔄 Redirection vers OnboardingFlow pour compléter l'inscription"
           );
-        },
-        tabBarActiveTintColor: COLORS.primary,
-        tabBarInactiveTintColor: inactiveTintColor,
-        tabBarShowLabel: true,
-        tabBarStyle: {
-          backgroundColor: isDarkMode ? COLORS.bgDark : "white",
-        },
-        tabBarLabelStyle: {
-          fontFamily: "Inter_500MeDIUM",
-          fontSize: 12,
-        },
-      })}
-    >
-      {/* Écran Activités (toujours visible) */}
-      <Tab.Screen
-        name="Activités"
-        component={HomeStack}
-        options={{
-          title: "Accueil", // Utilisé si le header était montré ou pour l'accessibilité
-        }}
-      />
+          setShouldShowOnboarding(true);
+          setShouldShowEmailVerification(false);
+          setShouldShowBlockedAccount(false);
+          setOnboardingParams({
+            userId: user.uid,
+            email: userData.email || user.email || null,
+            phoneNumber: userData.phoneNumber || null,
+            firstName: userData.firstName || "",
+            lastName: userData.lastName || "",
+            photoURL: userData.photoURL || user.photoURL || "",
+            loginMethod: userData.loginMethod || "email",
+          });
+          // Attendre 1 seconde pour afficher le skeleton d'onboarding
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+        // VÉRIFICATION 3: Email non vérifié
+        else if (hasCompletedOnboarding && !emailVerified) {
+          console.log("📧 Email non vérifié - redirection vers VerifyEmail");
+          setShouldShowOnboarding(false);
+          setShouldShowEmailVerification(true);
+          setShouldShowBlockedAccount(false);
+          setOnboardingParams({
+            email: userData.email || user.email,
+          });
+          // Pas de délai pour la vérification email
+          setIsInitialized(true);
+          return;
+        }
+        // VÉRIFICATION 4: Tout est OK
+        else {
+          setShouldShowOnboarding(false);
+          setShouldShowEmailVerification(false);
+          setShouldShowBlockedAccount(false);
+          // Pas de délai pour l'accès normal à l'app
+          setIsInitialized(true);
+          return;
+        }
+      } else {
+        // Pas d'utilisateur ou pas de document - initialiser immédiatement
+        setIsInitialized(true);
+      }
+    } catch (error) {
+      console.error("Erreur lors de la vérification de l'onboarding:", error);
+      // En cas d'erreur, on initialise immédiatement
+      setIsInitialized(true);
+    } finally {
+      // S'assurer que isInitialized est toujours true à la fin
+      setIsInitialized(true);
+    }
+  };
 
-      {/* Écran Partenaires (visible sauf pour 'pro') */}
-      {userSub !== "pro" && (
-        <Tab.Screen
-          name="Partenaires"
-          component={PartenerStack}
-          options={{
-            title: "Partenaires",
-          }}
-        />
-      )}
+  // Skeleton seulement si onboarding incomplet
+  if (!isInitialized) {
+    return <OnboardingSkeleton />;
+  }
 
-      {/* Écran Créer (visible pour 'premium' et 'pro') */}
-      {(userSub === "premium" || userSub === "pro") && (
-        <Tab.Screen
-          name="MainStepIndicator"
-          component={MainStepIndicator}
-          initialParams={{ userSUB: userSub }} // Passer les props initiales si nécessaire
-          options={{
-            title: "Créer",
-            // Header spécifique si besoin (mais caché par défaut globalement)
-            headerShown: true,
-            headerStyle: {
-              backgroundColor: isDarkMode ? COLORS.bgDark : "white",
-            },
-            headerTintColor: isDarkMode ? "white" : "black",
-            headerTitleStyle: commonHeaderOptions.headerTitleStyle,
-            tabBarIcon: (
-              { color } // Icône personnalisée avec fond
-            ) => (
-              <View style={styles.addButtonContainer}>
-                <Ionicons name="add-outline" size={25} color={COLORS.white} />
-              </View>
-            ),
-            tabBarButton: (
-              props // Bouton personnalisé pour Haptics
-            ) => (
-              <TouchableOpacity
-                activeOpacity={0.7}
-                {...props}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  props.onPress?.(); // Déclenche la navigation par défaut
-                }}
-              />
-            ),
-          }}
-        />
-      )}
+  // Fonction pour forcer le rechargement du Navigator
+  const refreshNavigator = () => {
+    setRefreshKey(prev => prev + 1);
+  };
 
-      {/* Écran Statistiques (visible seulement pour 'pro') */}
-      {userSub === "pro" && (
-        <Tab.Screen
-          name="Statistiques"
-          component={Statistiques}
-          options={{
-            title: "Statistiques",
-          }}
-        />
-      )}
-
-      {/* Écran Événements (visible sauf pour 'pro') */}
-      {userSub !== "pro" && (
-        <Tab.Screen
-          name="Événements"
-          component={Events}
-          options={{
-            title: "Agenda",
-            headerShown: true, // Exemple: Montrer le header pour cet écran
-            ...commonHeaderOptions,
-          }}
-        />
-      )}
-
-      {/* Écran Profil (toujours visible) */}
-      <Tab.Screen
-        name="Profil"
-        component={ProfileStack}
-        options={{
-          title: "Compte",
-        }}
-      />
-    </Tab.Navigator>
+  return (
+    <NavigatorRefreshContext.Provider value={refreshNavigator}>
+      <RootStack.Navigator screenOptions={{ headerShown: false }}>
+        {shouldShowBlockedAccount ? (
+          // Compte bloqué - afficher BloqueCompte et ContactUs
+          <>
+            <RootStack.Screen
+              name="BloqueCompte"
+              component={BloqueCompte}
+              options={{
+                gestureEnabled: false,
+              }}
+            />
+            <RootStack.Screen
+              name="ContactUs"
+              component={ContactUs}
+              options={{
+                title: "",
+              }}
+            />
+            <RootStack.Screen
+              name="PaymentResultScreen"
+              component={PaymentResultScreen}
+              options={{
+                gestureEnabled: false,
+                animation: "fade",
+              }}
+            />
+          </>
+        ) : shouldShowOnboarding ? (
+          <>
+            <RootStack.Screen
+              name="OnboardingFlow"
+              component={OnboardingFlow}
+              initialParams={onboardingParams}
+              options={{
+                gestureEnabled: false,
+              }}
+            />
+            <RootStack.Screen
+              name="VerifyEmail"
+              component={VerifyEmail}
+              options={{
+                gestureEnabled: false,
+              }}
+            />
+            <RootStack.Screen
+              name="BloqueCompte"
+              component={BloqueCompte}
+              options={{
+                gestureEnabled: false,
+              }}
+            />
+            <RootStack.Screen
+              name="ContactUs"
+              component={ContactUs}
+              options={{
+                title: "",
+              }}
+            />
+            <RootStack.Screen
+              name="PaymentResultScreen"
+              component={PaymentResultScreen}
+              options={{
+                gestureEnabled: false,
+                animation: "fade",
+              }}
+            />
+          </>
+        ) : shouldShowEmailVerification ? (
+          <>
+            <RootStack.Screen
+              name="VerifyEmail"
+              component={VerifyEmail}
+              initialParams={onboardingParams}
+              options={{
+                gestureEnabled: false,
+              }}
+            />
+            <RootStack.Screen
+              name="BloqueCompte"
+              component={BloqueCompte}
+              options={{
+                gestureEnabled: false,
+              }}
+            />
+            <RootStack.Screen
+              name="ContactUs"
+              component={ContactUs}
+              options={{
+                title: "",
+              }}
+            />
+            <RootStack.Screen name="MainTabs">
+              {() => <TabNavigator sub={sub} />}
+            </RootStack.Screen>
+            <RootStack.Screen
+              name="PaymentResultScreen"
+              component={PaymentResultScreen}
+              options={{
+                gestureEnabled: false,
+                animation: "fade",
+              }}
+            />
+          </>
+        ) : (
+          <>
+            <RootStack.Screen name="MainTabs">
+              {() => <TabNavigator sub={sub} />}
+            </RootStack.Screen>
+            <RootStack.Screen
+              name="PaymentResultScreen"
+              component={PaymentResultScreen}
+              options={{
+                gestureEnabled: false,
+                animation: "fade",
+              }}
+            />
+          </>
+        )}
+      </RootStack.Navigator>
+    </NavigatorRefreshContext.Provider>
   );
 };
 

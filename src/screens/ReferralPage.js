@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  Clipboard,
 } from "react-native";
 import {
   doc,
@@ -15,34 +16,78 @@ import {
   where,
   getDocs,
   writeBatch,
-  FieldPath,
   increment,
   arrayUnion,
   serverTimestamp,
 } from "@react-native-firebase/firestore";
 import { auth, db } from "../../config/firebase";
 import grantPromotionalEntitlement from "../utils/grantPromotionalEntitlement";
-import Purchases from "react-native-purchases";
 import { showMessage } from "react-native-flash-message";
-import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
-import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import Ionicons from "react-native-vector-icons/Ionicons";
-import i18n from "../../i18n";
+import Animated, { FadeInDown } from "react-native-reanimated";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
+import { useThemeContext } from "../ThemeProvider";
+import SettingsPageLayout from "../components/SettingsPageLayout";
+import { COLORS } from "../styles/colors";
+import { useSubscription } from "../contexts/SubscriptionContext";
+
 const ReferralPage = ({ navigation }) => {
+  const { t } = useTranslation();
+  const { isDarkMode } = useThemeContext();
+  const { forceRefresh } = useSubscription();
+
   const [referralCode, setReferralCode] = useState("");
   const [userReferralCode, setUserReferralCode] = useState("");
   const [isReferralLocked, setIsReferralLocked] = useState(false);
   const [promoButton, setPromoButton] = useState(false);
+  const [pointsConfig, setPointsConfig] = useState({
+    parrain_gratuit_point: 0,
+    parrain_premium_point: 0,
+    parrain_pro_point: 0,
+  });
+
+  const scrollViewRef = useRef(null);
+  const inputSectionRef = useRef(null);
+
+  const handleInputFocus = () => {
+    // Scroll vers la section input avec animation smooth
+    setTimeout(() => {
+      inputSectionRef.current?.measureLayout(
+        scrollViewRef.current,
+        (x, y) => {
+          scrollViewRef.current?.scrollTo({ y: y - 20, animated: true });
+        }
+      );
+    }, 100);
+  };
 
   useEffect(() => {
     fetchUserData();
+    fetchPointsConfig();
   }, []);
+
+const fetchPointsConfig = async () => {
+  try {
+    const pointsDocRef = doc(db, "admin", "defispoint");
+    const pointsDocSnap = await getDoc(pointsDocRef);
+
+    if (pointsDocSnap.exists()) {
+      const data = pointsDocSnap.data();
+      setPointsConfig({
+        parrain_gratuit_point: data.parrain_gratuit_point || 0,
+        parrain_premium_point: data.parrain_premium_point || 0,
+        parrain_pro_point: data.parrain_pro_point || 0,
+      });
+    }
+  } catch (error) {
+    console.error("Erreur lors de la récupération de la configuration des points :", error);
+  }
+};
 
 const fetchUserData = async () => {
   const userUID = auth.currentUser?.uid;
   if (userUID) {
-    setUserReferralCode(userUID.slice(0, 6));
+    setUserReferralCode(userUID.slice(0, 6).toUpperCase());
   }
 
   try {
@@ -50,7 +95,7 @@ const fetchUserData = async () => {
     const userDocSnap = await getDoc(userDocRef);
 
     if (userDocSnap.exists() && userDocSnap.data().parrainId) {
-      setReferralCode(userDocSnap.data().parrainId.slice(0, 6));
+      setReferralCode(userDocSnap.data().parrainId.slice(0, 6).toUpperCase());
       setIsReferralLocked(true);
     }
     if (userDocSnap.exists() && userDocSnap.data().sub === "gratuit") {
@@ -61,10 +106,25 @@ const fetchUserData = async () => {
   }
 };
 
+const handleCopyCode = async () => {
+  try {
+    await Clipboard.setString(userReferralCode);
+    showMessage({
+      message: t("code_copie"),
+      type: "success",
+    });
+  } catch (error) {
+    showMessage({
+      message: t("erreur_copie"),
+      type: "danger",
+    });
+  }
+};
+
 const handleValidateReferralCode = async () => {
   if (!referralCode || referralCode.length !== 6) {
     showMessage({
-      message: "Veuillez entrer un code valide.",
+      message: t("veuillez_entrer_un_code_valide"),
       type: "danger",
     });
     return;
@@ -81,15 +141,18 @@ const handleValidateReferralCode = async () => {
       gratuit: pointsConfig.parrain_gratuit_point,
     };
 
+    // Convertir en majuscules pour recherche insensible à la casse
+    const normalizedCode = referralCode.toUpperCase();
+
+    // Rechercher par champ referralCode au lieu de documentId
     const usersQuery = query(
       collection(db, "users"),
-      where(FieldPath.documentId(), ">=", referralCode),
-      where(FieldPath.documentId(), "<=", referralCode + "\uf8ff")
+      where("referralCode", "==", normalizedCode)
     );
     const querySnapshot = await getDocs(usersQuery);
 
     if (querySnapshot.empty) {
-      showMessage({ message: "Code invalide.", type: "danger" });
+      showMessage({ message: t("code_invalide"), type: "danger" });
       return;
     }
 
@@ -100,11 +163,10 @@ const handleValidateReferralCode = async () => {
     const currentUserUID = auth.currentUser?.uid;
 
     if (!currentUserUID) {
-      showMessage({ message: "Non connecté.", type: "danger" });
+      showMessage({ message: t("non_connecte"), type: "danger" });
       return;
     }
 
-    // Transactions batch
     const batch = writeBatch(db);
     const userRef = doc(db, "users", currentUserUID);
     const parrainRef = doc(db, "users", parrainId);
@@ -130,254 +192,443 @@ const handleValidateReferralCode = async () => {
     await batch.commit();
 
     showMessage({
-      message: `Code validé, ${points[parrainRole]} pièces vous ont été envoyées à vous et à votre parrain`,
+      message: t("code_valide_pieces_envoyees", { points: points[parrainRole] }),
       type: "success",
     });
     fetchUserData();
   } catch (error) {
     console.error("Erreur:", error);
-    showMessage({ message: "Erreur lors de la validation.", type: "danger" });
+    showMessage({ message: t("erreur_lors_de_la_validation"), type: "danger" });
   }
 };
 
   const handleGrantReward = async () => {
     try {
-      // Obtenir l'ID utilisateur RevenueCat actuel
-      const customerInfo = await Purchases.getCustomerInfo();
-      const appUserId = customerInfo.originalAppUserId; // Ou l'ID que vous utilisez
-
       const entitlementId = "premium";
       const durationDays = 7;
       const duration = "weekly";
 
-      if (appUserId) {
-        await grantPromotionalEntitlement(
-          appUserId,
-          entitlementId,
-          durationDays,
-          duration
-        );
-        await AsyncStorage.setItem("sub", entitlementId);
-        Alert.alert(
-          `Votre abonnement a été activé avec succès, veuillez fermer l'app et la réouvrir si les changements n'ont pas été directement éffectués.`
-        );
+      const result = await grantPromotionalEntitlement(
+        entitlementId,
+        durationDays,
+        duration
+      );
 
-        await Purchases.getCustomerInfo(); // ou getCustomerInfo() à nouveau
-        await Purchases.syncPurchases(); // ou getCustomerInfo() à nouveau
+      if (result.success) {
+        // Synchroniser avec le contexte centralisé
+        await forceRefresh();
+
+        showMessage({
+          message: t("recompense_accordee"),
+          description: t("abonnement_premium_active"),
+          type: "success",
+        });
+
         navigation.goBack();
       } else {
-        Alert.alert("Impossible de récupérer l'ID utilisateur.");
+        Alert.alert(
+          t("erreur"),
+          result.error || t("impossible_accorder_recompense")
+        );
       }
     } catch (error) {
       console.error("Erreur lors de l'octroi de la récompense:", error);
       Alert.alert(
-        `Erreur : ${error.message || "Impossible d'accorder la récompense."}`
+        t("erreur"),
+        error.message || t("impossible_accorder_recompense")
       );
     }
   };
 
   return (
-    <KeyboardAwareScrollView
-      keyboardDismissMode="on-drag"
-      keyboardShouldPersistTaps="handled"
-      enableOnAndroid
-      extraHeight={200}
-      className="flex-1 bg-gray-100 dark:bg-gray-900"
+    <SettingsPageLayout
+      title={t("parrainage")}
+      subtitle={t("partagez_et_gagnez_des_recompenses")}
+      scrollViewRef={scrollViewRef}
+      enableKeyboardAvoiding={true}
     >
-      <Animated.View entering={FadeIn.duration(200)} className="p-5">
-        {/* Header */}
-        <View className="bg-white dark:bg-gray-800 rounded-2xl p-6 mb-6 border border-gray-200 dark:border-gray-700">
-          <View className="flex-row items-center justify-between mb-4">
+      {/* Votre code */}
+      <Animated.View
+        entering={FadeInDown.duration(500).delay(100)}
+        style={styles.section}
+      >
+        <View
+          style={[
+            styles.codeCard,
+            { backgroundColor: isDarkMode ? COLORS.bgDarkSecondary : "#F7F9F9" },
+          ]}
+        >
+          <View style={styles.codeHeader}>
             <Text
-              className="text-lg font-semibold text-gray-900 dark:text-white"
-              style={{ fontFamily: "Inter_400Regular" }}
+              style={[
+                styles.codeTitle,
+                { color: isDarkMode ? "#FFFFFF" : "#000000" },
+              ]}
             >
-              {i18n.t("votre_code_de_parrainage")}
+              {t("votre_code_de_parrainage")}
             </Text>
-            <Ionicons
-              name="information-circle-outline"
-              size={24}
-              color="#3B82F6"
-            />
+            <TouchableOpacity onPress={handleCopyCode} activeOpacity={0.7}>
+              <MaterialCommunityIcons
+                name="content-copy"
+                size={24}
+                color="#3B82F6"
+              />
+            </TouchableOpacity>
           </View>
+          <TouchableOpacity onPress={handleCopyCode} activeOpacity={0.7}>
+            <Text style={styles.codeValue}>
+              {userReferralCode || t("chargement")}
+            </Text>
+          </TouchableOpacity>
           <Text
-            className="text-4xl font-bold text-blue-600 dark:text-blue-400 tracking-tight"
-            style={{ fontFamily: "Inter_500Medium" }}
+            style={[
+              styles.codeDescription,
+              { color: isDarkMode ? "#94A3B8" : "#64748B" },
+            ]}
           >
-            {userReferralCode || i18n.t("chargement")}
-          </Text>
-          <Text
-            className="text-sm text-gray-500 dark:text-gray-400 mt-1"
-            style={{ fontFamily: "Inter_400Regular" }}
-          >
-            {i18n.t(
-              "partagez_ce_code_avec_vos_amis_pour_quils_beneficient_davantages"
-            )}
+            {t("partagez_ce_code_avec_vos_amis_pour_quils_beneficient_davantages")}
           </Text>
         </View>
+      </Animated.View>
 
-        {/* Enter Referral Code Section */}
-        <View className="bg-white dark:bg-gray-800 rounded-2xl p-6 mb-6 border border-gray-200 dark:border-gray-700">
+      {/* Entrer un code */}
+      <Animated.View
+        ref={inputSectionRef}
+        entering={FadeInDown.duration(500).delay(200)}
+        style={styles.section}
+      >
+        <View
+          style={[
+            styles.inputCard,
+            { backgroundColor: isDarkMode ? COLORS.bgDarkSecondary : "#F7F9F9" },
+          ]}
+        >
           <Text
-            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-            style={{ fontFamily: "Inter_500Medium" }}
+            style={[
+              styles.inputLabel,
+              { color: isDarkMode ? "#FFFFFF" : "#000000" },
+            ]}
           >
-            {i18n.t("entrez_un_code_de_parrainage")}
+            {t("entrez_un_code_de_parrainage")}
           </Text>
-          <View className="mt-1 relative rounded-md">
-            <TextInput
-              className="block w-full pr-10 sm:text-sm rounded-md dark:bg-gray-700 dark:text-white dark:border-gray-600"
-              style={[
-                styles.input,
-                {
-                  borderColor: isReferralLocked ? "#E5E7EB" : "#D1D5DB",
-                  backgroundColor: isReferralLocked ? "#F3F4F6" : "#FFFFFF",
-                  color: isReferralLocked ? "#9CA3AF" : "#111827",
-                },
-                isReferralLocked && styles.inputDisabled,
-              ]}
-              editable={!isReferralLocked}
-              value={referralCode}
-              onChangeText={(text) => setReferralCode(text)}
-              maxLength={6}
-              placeholder="XXXXXX"
-              placeholderTextColor="#9CA3AF"
-            />
-          </View>
-          <Text
-            className="mt-2 text-sm text-gray-500 dark:text-gray-400"
-            style={{ fontFamily: "Inter_400Regular" }}
-          >
-            {i18n.t("sensible_a_la_casse")}
-          </Text>
+          <TextInput
+            style={[
+              styles.input,
+              {
+                borderColor: isReferralLocked
+                  ? isDarkMode
+                    ? "#2F3336"
+                    : "#E5E7EB"
+                  : isDarkMode
+                  ? "#3F3F46"
+                  : "#D1D5DB",
+                backgroundColor: isReferralLocked
+                  ? isDarkMode
+                    ? "#1A1A1A"
+                    : "#F3F4F6"
+                  : isDarkMode
+                  ? "#0A0A0A"
+                  : "#FFFFFF",
+                color: isReferralLocked
+                  ? isDarkMode
+                    ? "#71717A"
+                    : "#9CA3AF"
+                  : isDarkMode
+                  ? "#FFFFFF"
+                  : "#000000",
+              },
+            ]}
+            editable={!isReferralLocked}
+            value={referralCode}
+            onChangeText={(text) => setReferralCode(text.toUpperCase())}
+            onFocus={handleInputFocus}
+            maxLength={6}
+            placeholder="XXXXXX"
+            placeholderTextColor={isDarkMode ? "#71717A" : "#9CA3AF"}
+            autoCapitalize="characters"
+          />
 
-          {/* Validate Button */}
           {!isReferralLocked && (
             <TouchableOpacity
               onPress={handleValidateReferralCode}
-              className="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              style={styles.validateButton}
               activeOpacity={0.8}
             >
-              <Text
-                className="text-white text-base font-medium text-center"
-                style={{ fontFamily: "Inter_500Medium" }}
-              >
-                {i18n.t("valider_le_code")}
-              </Text>
+              <Text style={styles.buttonText}>{t("valider_le_code")}</Text>
             </TouchableOpacity>
           )}
+
           {promoButton && isReferralLocked && (
             <TouchableOpacity
               onPress={handleGrantReward}
-              className="mt-4 bg-green-600 hover:bg-green-700 text-white font-bold py-2.5 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+              style={styles.rewardButton}
               activeOpacity={0.8}
             >
-              <Text
-                className="text-white text-base font-medium text-center"
-                style={{ fontFamily: "Inter_500Medium" }}
-              >
-                {i18n.t("obtenir_1_semaine_premium_gratuit")}
+              <Text style={styles.buttonText}>
+                {t("obtenir_1_semaine_premium_gratuit")}
               </Text>
             </TouchableOpacity>
           )}
         </View>
+      </Animated.View>
 
-        {/* How it Works Section */}
-        <View className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
-          <Text
-            className="text-lg font-semibold text-gray-900 dark:text-white mb-5"
-            style={{ fontFamily: "Inter_400Regular" }}
-          >
-            {i18n.t("comment_ca_marche")}
-          </Text>
+      {/* Comment ça marche */}
+      <Animated.View
+        entering={FadeInDown.duration(500).delay(300)}
+        style={styles.section}
+      >
+        <Text
+          style={[
+            styles.sectionTitle,
+            { color: isDarkMode ? "#FFFFFF" : "#000000" },
+          ]}
+        >
+          {t("comment_ca_marche")}
+        </Text>
 
-          {/* Step 1: Invite Friends */}
-          <View className="flex-row items-start mb-4">
-            <View className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center mr-3 flex-shrink-0">
-              <Ionicons name="person-add-outline" size={16} color="#3B82F6" />
+        <View
+          style={[
+            styles.howItWorksCard,
+            { backgroundColor: isDarkMode ? COLORS.bgDarkSecondary : "#F7F9F9" },
+          ]}
+        >
+          {/* Étape 1 */}
+          <View style={styles.stepItem}>
+            <View style={[styles.stepIcon, { backgroundColor: "#3B82F620" }]}>
+              <MaterialCommunityIcons
+                name="account-multiple-plus"
+                size={20}
+                color="#3B82F6"
+              />
             </View>
             <Text
-              className="text-sm text-gray-700 dark:text-gray-300 flex-1"
-              style={{ fontFamily: "Inter_500Medium", lineHeight: 20 }}
+              style={[
+                styles.stepText,
+                { color: isDarkMode ? "#CBD5E1" : "#475569" },
+              ]}
             >
-              <Text className="font-bold">
-                {i18n.t(
-                  "partagez_ce_code_avec_vos_amis_pour_quils_beneficient_davantages"
-                )}
-              </Text>{" "}
+              {t("partagez_ce_code_avec_vos_amis_pour_quils_beneficient_davantages")}
             </Text>
           </View>
 
-          {/* Step 2: Earn Rewards */}
-          <View className="flex-row items-start mb-4">
-            <View className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center mr-3 flex-shrink-0">
-              <Ionicons name="gift-outline" size={16} color="#10B981" />
+          {/* Étape 2 */}
+          <View style={styles.stepItem}>
+            <View style={[styles.stepIcon, { backgroundColor: "#10B98120" }]}>
+              <MaterialCommunityIcons name="gift" size={20} color="#10B981" />
             </View>
-            <View className="flex-1">
+            <View style={{ flex: 1 }}>
               <Text
-                className="text-sm text-gray-700 dark:text-gray-300"
-                style={{ fontFamily: "Inter_500Medium", lineHeight: 20 }}
+                style={[
+                  styles.stepText,
+                  { color: isDarkMode ? "#CBD5E1" : "#475569" },
+                ]}
               >
-                <Text className="font-bold">
-                  {i18n.t("gagnez_des_recompenses")}
-                </Text>{" "}
-                {i18n.t("selon_le_type_de_compte_de_votre_ami")}
+                <Text style={styles.stepBold}>{t("gagnez_des_recompenses")}</Text>{" "}
+                {t("selon_le_type_de_compte_de_votre_ami")}
               </Text>
-              {/* Rewards List */}
-              <View className="mt-2 pl-2">
-                <Text
-                  className="text-xs text-gray-600 dark:text-gray-400"
-                  style={{ fontFamily: "Inter_400Regular" }}
-                >
-                  • <Text className="font-semibold">{i18n.t("50_pieces")}</Text>{" "}
-                  {i18n.t("compte_gratuit")}
-                </Text>
-                <Text
-                  className="text-xs text-gray-600 dark:text-gray-400"
-                  style={{ fontFamily: "Inter_400Regular" }}
-                >
-                  •{" "}
-                  <Text className="font-semibold">{i18n.t("100_pieces")}</Text>{" "}
-                  {i18n.t("compte_premium")}
-                </Text>
-                <Text
-                  className="text-xs text-gray-600 dark:text-gray-400"
-                  style={{ fontFamily: "Inter_400Regular" }}
-                >
-                  •{" "}
-                  <Text className="font-semibold">{i18n.t("150_pieces")}</Text>{" "}
-                  {i18n.t("compte_pro")}
-                </Text>
+              <View style={styles.rewardsList}>
+                <View style={styles.rewardItem}>
+                  <View style={styles.rewardBullet} />
+                  <Text
+                    style={[
+                      styles.rewardText,
+                      { color: isDarkMode ? "#94A3B8" : "#64748B" },
+                    ]}
+                  >
+                    <Text style={styles.rewardPoints}>
+                      {pointsConfig.parrain_gratuit_point} {t("pieces")}
+                    </Text>{" "}
+                    - {t("compte_gratuit")}
+                  </Text>
+                </View>
+                <View style={styles.rewardItem}>
+                  <View style={styles.rewardBullet} />
+                  <Text
+                    style={[
+                      styles.rewardText,
+                      { color: isDarkMode ? "#94A3B8" : "#64748B" },
+                    ]}
+                  >
+                    <Text style={styles.rewardPoints}>
+                      {pointsConfig.parrain_premium_point} {t("pieces")}
+                    </Text>{" "}
+                    - {t("compte_premium")}
+                  </Text>
+                </View>
+                <View style={styles.rewardItem}>
+                  <View style={styles.rewardBullet} />
+                  <Text
+                    style={[
+                      styles.rewardText,
+                      { color: isDarkMode ? "#94A3B8" : "#64748B" },
+                    ]}
+                  >
+                    <Text style={styles.rewardPoints}>
+                      {pointsConfig.parrain_pro_point} {t("pieces")}
+                    </Text>{" "}
+                    - {t("compte_pro")}
+                  </Text>
+                </View>
               </View>
             </View>
           </View>
 
-          {/* Step 3: Limitation */}
-          <View className="flex-row items-start">
-            <View className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900 flex items-center justify-center mr-3 flex-shrink-0">
-              <Ionicons name="alert-circle-outline" size={16} color="#EF4444" />
+          {/* Étape 3 */}
+          <View style={[styles.stepItem, { marginBottom: 0 }]}>
+            <View style={[styles.stepIcon, { backgroundColor: "#EF444420" }]}>
+              <MaterialCommunityIcons
+                name="alert-circle"
+                size={20}
+                color="#EF4444"
+              />
             </View>
             <Text
-              className="text-sm text-gray-700 dark:text-gray-300 flex-1"
-              style={{ fontFamily: "Inter_500Medium", lineHeight: 20 }}
+              style={[
+                styles.stepText,
+                { color: isDarkMode ? "#CBD5E1" : "#475569" },
+              ]}
             >
-              <Text className="font-bold">{i18n.t("important")}</Text>{" "}
-              {i18n.t("vous_ne_pouvez_avoir_qu_un_seul_parrain")}
+              <Text style={styles.stepBold}>{t("important")}</Text>{" "}
+              {t("vous_ne_pouvez_avoir_qu_un_seul_parrain")}
             </Text>
           </View>
         </View>
       </Animated.View>
-    </KeyboardAwareScrollView>
+    </SettingsPageLayout>
   );
 };
 
 const styles = StyleSheet.create({
-  input: {
-    height: 40,
-    paddingHorizontal: 12,
+  section: {
+    marginBottom: 32,
+    paddingHorizontal: 16,
+  },
+  sectionTitle: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 20,
+    letterSpacing: -0.5,
+    marginBottom: 16,
+  },
+  // Code Card
+  codeCard: {
+    borderRadius: 16,
+    padding: 20,
+  },
+  codeHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  codeTitle: {
+    fontFamily: "Inter_600SemiBold",
     fontSize: 16,
+    letterSpacing: -0.3,
+  },
+  codeValue: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 40,
+    color: "#3B82F6",
+    letterSpacing: 4,
+    marginBottom: 8,
+  },
+  codeDescription: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  // Input Card
+  inputCard: {
+    borderRadius: 16,
+    padding: 20,
+  },
+  inputLabel: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 16,
+    letterSpacing: -0.3,
+    marginBottom: 12,
+  },
+  input: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 16,
+    height: 48,
+    paddingHorizontal: 16,
     borderWidth: 1,
-    borderRadius: 6,
+    borderRadius: 9999,
+    marginBottom: 16,
+  },
+  validateButton: {
+    backgroundColor: "#3B82F6",
+    borderRadius: 9999,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  rewardButton: {
+    backgroundColor: "#10B981",
+    borderRadius: 9999,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginTop: 12,
+  },
+  buttonText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 16,
+    color: "#FFFFFF",
+    letterSpacing: -0.3,
+  },
+  // How It Works
+  howItWorksCard: {
+    borderRadius: 16,
+    padding: 20,
+  },
+  stepItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 20,
+  },
+  stepIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  stepText: {
+    flex: 1,
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
+    lineHeight: 20,
+    paddingTop: 8,
+  },
+  stepBold: {
+    fontFamily: "Inter_600SemiBold",
+  },
+  rewardsList: {
+    marginTop: 12,
+    paddingLeft: 8,
+  },
+  rewardItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 6,
+  },
+  rewardBullet: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#10B981",
+    marginTop: 8,
+    marginRight: 8,
+  },
+  rewardText: {
+    flex: 1,
+    fontFamily: "Inter_400Regular",
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  rewardPoints: {
+    fontFamily: "Inter_600SemiBold",
   },
 });
 

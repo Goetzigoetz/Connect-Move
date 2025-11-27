@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -14,12 +14,12 @@ import { showMessage } from "react-native-flash-message";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import { Rating } from "react-native-elements";
-import { useColorScheme } from "nativewind";
+import { useThemeContext } from "../ThemeProvider";
 import i18n from "../../i18n";
+import { COLORS } from "../styles/colors";
 
 const WriteReview = ({ navigation, route }) => {
-  const { colorScheme } = useColorScheme();
-  const isDarkMode = colorScheme === "dark";
+  const { isDarkMode } = useThemeContext();
   const MAX_LENGTH = 500;
   const user = auth.currentUser;
 
@@ -32,7 +32,7 @@ const WriteReview = ({ navigation, route }) => {
 
   const handleSubmit = async () => {
     if (!message || rating === 0) {
-      Alert.alert("Erreur", "Veuillez remplir tous les champs.");
+      Alert.alert(i18n.t("erreur"), i18n.t("remplir_champs"));
       return;
     }
 
@@ -45,37 +45,62 @@ const WriteReview = ({ navigation, route }) => {
 });
 
       showMessage({
-        message: "Votre avis a été enregistré avec succès.",
+        message: i18n.t("avis_enregistre"),
         type: "success",
       });
       navigation.goBack();
     } catch (error) {
       console.error("Erreur lors de l'enregistrement de l'avis :", error);
       showMessage({
-        message: "Impossible d'enregistrer votre avis.",
+        message: i18n.t("impossible_enregistrer_avis"),
         type: "danger",
       });
     }
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white dark:bg-gray-900">
+    <SafeAreaView style={{ flex: 1, backgroundColor: isDarkMode ? COLORS.bgDark : "#FFFFFF" }}>
       <KeyboardAwareScrollView
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
         enableOnAndroid
         extraHeight={200}
-        className="px-6"
+        style={{ paddingHorizontal: 24 }}
       >
-        <Animated.View entering={FadeInDown.duration(400)} className="pt-8">
-          <View className="mb-8">
-            <Text className="text-3xl font-bold text-gray-900 dark:text-white mb-2">{i18n.t("ecrire_un_avis")}</Text>
-            <Text className="text-gray-500 dark:text-gray-400 text-base">{i18n.t("partagez_votre_expérience")}</Text>
+        <Animated.View entering={FadeInDown.duration(400)} style={{ paddingTop: 32 }}>
+          <View style={{ marginBottom: 32 }}>
+            <Text
+              style={{
+                fontSize: 30,
+                fontFamily: "Inter_700Bold",
+                color: isDarkMode ? "#FFFFFF" : "#111827",
+                marginBottom: 8,
+              }}
+            >
+              {i18n.t("ecrire_un_avis")}
+            </Text>
+            <Text
+              style={{
+                fontSize: 16,
+                fontFamily: "Inter_400Regular",
+                color: isDarkMode ? "#9CA3AF" : "#6B7280",
+              }}
+            >
+              {i18n.t("partagez_votre_expérience")}
+            </Text>
           </View>
 
-          <View className="space-y-6">
+          <View style={{ gap: 24 }}>
             <View>
-              <Text className="text-gray-700 dark:text-gray-300 mb-2 ">{i18n.t("note")}</Text>
+              <Text
+                style={{
+                  fontFamily: "Inter_500Medium",
+                  color: isDarkMode ? "#D1D5DB" : "#374151",
+                  marginBottom: 8,
+                }}
+              >
+                {i18n.t("note")}
+              </Text>
               <Rating
                 type="star"
                 ratingCount={5}
@@ -88,30 +113,52 @@ const WriteReview = ({ navigation, route }) => {
             </View>
 
             <View>
-              <Text className="text-gray-700 dark:text-gray-300 mb-2 ">{i18n.t("votre_avis")}</Text>
-              <View className="relative">
+              <Text
+                style={{
+                  fontFamily: "Inter_500Medium",
+                  color: isDarkMode ? "#D1D5DB" : "#374151",
+                  marginBottom: 8,
+                }}
+              >
+                {i18n.t("votre_avis")}
+              </Text>
+              <View style={{ position: "relative" }}>
                 <TextInput
-                  className="bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white rounded p-4 pl-12 min-h-[150px]"
-                  placeholder="Partagez votre expérience..."
-                  placeholderTextColor="#9CA3AF"
+                  style={{
+                    backgroundColor: isDarkMode ? COLORS.bgDarkSecondary : "#F9FAFB",
+                    color: isDarkMode ? "#FFFFFF" : "#111827",
+                    borderRadius: 12,
+                    padding: 16,
+                    paddingLeft: 48,
+                    minHeight: 150,
+                    fontSize: 16,
+                    fontFamily: "Inter_400Regular",
+                  }}
+                  placeholder={i18n.t("partagez_experience_placeholder")}
+                  placeholderTextColor={isDarkMode ? "#6B7280" : "#9CA3AF"}
                   value={message}
                   onChangeText={setMessage}
                   maxLength={MAX_LENGTH}
                   multiline
                   textAlignVertical="top"
-                  style={{ fontSize: 16 }}
                 />
-                <View className="absolute left-4 top-4">
+                <View style={{ position: "absolute", left: 16, top: 16 }}>
                   <Ionicons
                     name="chatbubble-outline"
                     size={24}
-                    color="#6B7280"
+                    color={isDarkMode ? "#6B7280" : "#6B7280"}
                   />
                 </View>
               </View>
-              <View className="flex-row justify-end mt-2">
-                <Text className="text-gray-500 dark:text-gray-400 text-sm">
-                  {message.length}/{MAX_LENGTH} caractères
+              <View style={{ flexDirection: "row", justifyContent: "flex-end", marginTop: 8 }}>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontFamily: "Inter_400Regular",
+                    color: isDarkMode ? "#9CA3AF" : "#6B7280",
+                  }}
+                >
+                  {message.length}/{MAX_LENGTH} {i18n.t("caracteres")}
                 </Text>
               </View>
             </View>
@@ -119,18 +166,44 @@ const WriteReview = ({ navigation, route }) => {
             <TouchableOpacity
               onPress={handleSubmit}
               disabled={!message || rating === 0}
-              className={`h-[56px] rounded flex-row items-center justify-center mt-4 ${
-                !message || rating === 0
-                  ? "bg-blue-300 dark:bg-blue-700"
-                  : "bg-blue-600 dark:bg-blue-500"
-              }`}
+              style={{
+                height: 56,
+                borderRadius: 12,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                marginTop: 16,
+                backgroundColor: !message || rating === 0
+                  ? (isDarkMode ? "#1E40AF" : "#93C5FD")
+                  : "#2563EB",
+                opacity: !message || rating === 0 ? 0.7 : 1,
+              }}
             >
-              <Text className="text-white font-semibold text-lg mr-2">{i18n.t("publier_lavis")}</Text>
+              <Text
+                style={{
+                  color: "#FFFFFF",
+                  fontFamily: "Inter_600SemiBold",
+                  fontSize: 18,
+                  marginRight: 8,
+                }}
+              >
+                {i18n.t("publier_lavis")}
+              </Text>
               <Ionicons name="send-outline" size={20} color="white" />
             </TouchableOpacity>
           </View>
 
-          <Text className="text-gray-500 dark:text-gray-400 text-sm text-center mt-8">{i18n.t("votre_avis_nous_aide_a_ameliorer_lexperience_de_tous_les_utilisateurs")}</Text>
+          <Text
+            style={{
+              fontSize: 14,
+              fontFamily: "Inter_400Regular",
+              color: isDarkMode ? "#9CA3AF" : "#6B7280",
+              textAlign: "center",
+              marginTop: 32,
+            }}
+          >
+            {i18n.t("votre_avis_nous_aide_a_ameliorer_lexperience_de_tous_les_utilisateurs")}
+          </Text>
         </Animated.View>
       </KeyboardAwareScrollView>
     </SafeAreaView>

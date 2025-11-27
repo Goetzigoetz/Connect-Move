@@ -2,13 +2,12 @@ import React, { useEffect } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { useColorScheme } from "nativewind";
+import { useThemeContext } from "../ThemeProvider";
 import { COLORS } from "../styles/colors";
 import { requestTrackingPermissionsAsync } from "expo-tracking-transparency";
 
 const TrackingPermissionScreen = ({ navigation, onDone }) => {
-  const { colorScheme } = useColorScheme();
-  const isDarkMode = colorScheme === "dark";
+  const { isDarkMode } = useThemeContext();
 
   const handlePermission = async () => {
     if (Platform.OS === "ios") {
@@ -16,7 +15,7 @@ const TrackingPermissionScreen = ({ navigation, onDone }) => {
         const { status } = await requestTrackingPermissionsAsync();
         if (status === "granted" || status === "unavailable") {
           if (onDone) onDone();
-          else navigation.replace("Main");
+          else navigation.replace("MainTabs");
         }
       } catch (error) {
         Optionnel : showMessage({ message: "Erreur lors de la demande", type: "danger" });
@@ -24,7 +23,7 @@ const TrackingPermissionScreen = ({ navigation, onDone }) => {
     } else {
       // Android - pas de permission tracking
       if (onDone) onDone();
-      else navigation.replace("Main");
+      else navigation.replace("MainTabs");
     }
   };
 
@@ -35,7 +34,7 @@ const TrackingPermissionScreen = ({ navigation, onDone }) => {
         const { status } = await requestTrackingPermissionsAsync();
         if (status === "granted" || status === "unavailable") {
           if (onDone) onDone();
-          else navigation.replace("Main");
+          else navigation.replace("MainTabs");
         }
       }
     };
@@ -43,7 +42,7 @@ const TrackingPermissionScreen = ({ navigation, onDone }) => {
   }, []);
 
   return (
-    <View style={[styles.container, { backgroundColor: isDarkMode ? "#18181B" : "#fff" }]}>
+    <View style={[styles.container, { backgroundColor: isDarkMode ? COLORS.bgDarkSecondary : "#fff" }]}>
       <LinearGradient
         colors={isDarkMode ? ["#23272F", "#18181B"] : ["#FFF7ED", "#fff"]}
         style={styles.gradient}
@@ -86,7 +85,7 @@ const TrackingPermissionScreen = ({ navigation, onDone }) => {
         style={styles.skip}
         onPress={() => {
           if (onDone) onDone();
-          else navigation.replace("Main");
+          else navigation.replace("MainTabs");
         }}
       >
         <Text

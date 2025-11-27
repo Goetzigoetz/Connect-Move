@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title data-i18n="title">Politique de Confidentialité - Connect & Move</title>
+  <style>
+    :root {
+      --bg-color: #ffffff;
+      --text-color: #333333;
+      --accent-color: #ff6600;
+    }
+    .dark-mode {
+      --bg-color: #222222;
+      --text-color: #dddddd;
+    }
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      line-height: 1.6;
+    }
+    header {
+      background-color: var(--accent-color);
+      padding: 1rem;
+      text-align: center;
+      color: #fff;
+    }
+    nav {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    nav a {
+      margin: 0 1rem;
+      color: #fff;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    .container {
+      padding: 2rem;
+    }
+    .toggle-dark-mode {
+      position: fixed;
+      bottom: 1rem;
+      right: 1rem;
+      background-color: var(--accent-color);
+      color: #fff;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .lang-selector {
+      margin-left: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1 data-i18n="headerTitle">Connect & Move</h1>
+    <nav>
+      <a href="index.html" data-i18n="navHome">Accueil</a>
+      <a href="contacter.html" data-i18n="navVision">Contact</a>
+      <a href="termes.html" data-i18n="navTermes">CGU</a>
+      <a href="vie privee.html" data-i18n="navPrivacy">Confidentialité</a>
+      <a href="juridique.html" data-i18n="navLegal">Mentions Légales</a>
+      <select id="languageSelector" class="lang-selector" onchange="changeLanguage()">
+        <option value="fr" selected>Français</option>
+        <option value="en">English</option>
+        <option value="it">Italiano</option>
+      </select>
+    </nav>
+  </header>
+  <div class="container">
+    <h2 data-i18n="privacyTitle">Politique de Confidentialité</h2>
+    <p data-i18n="privacyText"></p>
+  </div>
+  <button class="toggle-dark-mode" onclick="toggleDarkMode()" data-i18n="darkModeButton">Mode sombre</button>
+  <script>
+    const translations = {
+      fr: {
+        title: "Politique de Confidentialité - Connect & Move",
+        headerTitle: "Connect & Move",
+        navHome: "Accueil",
+        navVision: "Contact",
+        navTerms: "CGU",
+        navPrivacy: "Confidentialité",
+        navLegal: "Mentions Légales",
+        privacyTitle: "Politique de Confidentialité",
+        privacyText: "1. <strong>Introduction :</strong> La protection de ta vie privée est une priorité. Cette politique explique comment nous collectons, utilisons et protégeons les données personnelles que tu nous fournis.<br><br>2. <strong>Données collectées :</strong> Nous collectons les informations que tu saisis lors de ton inscription ou lors de l’utilisation de l’application (nom, adresse e-mail, etc.). Nous recueillons également des données via des cookies pour améliorer ton expérience de navigation.<br><br>3. <strong>Utilisation des données :</strong> Les données collectées sont utilisées pour :<br>&nbsp;&nbsp;&nbsp;&nbsp;- Gérer ton compte et fournir les services associés.<br>&nbsp;&nbsp;&nbsp;&nbsp;- Améliorer notre site et l’application.<br>&nbsp;&nbsp;&nbsp;&nbsp;- Communiquer avec toi (informations, mises à jour, offres promotionnelles).<br><br>4. <strong>Sécurité des données :</strong> Nous mettons en œuvre des mesures de sécurité afin de protéger tes données contre tout accès non autorisé.<br><br>5. <strong>Tes droits :</strong> Tu disposes d’un droit d’accès, de rectification et de suppression de tes données personnelles. Pour exercer ces droits, contacte-nous à l’adresse indiquée.<br><br>6. <strong>Modifications :</strong> Cette politique peut être modifiée. Toute modification sera publiée sur cette page.",
+        darkModeButton: "Mode sombre"
+      },
+      en: {
+        title: "Privacy Policy - Connect & Move",
+        headerTitle: "Connect & Move",
+        navHome: "Home",
+        navVision: "Contact",
+        navTerms: "Terms of Use",
+        navPrivacy: "Privacy Policy",
+        navLegal: "Legal Notice",
+        privacyTitle: "Privacy Policy",
+        privacyText: "1. <strong>Introduction:</strong> Protecting your privacy is a priority. This policy explains how we collect, use, and protect the personal data you provide us.<br><br>2. <strong>Data Collected:</strong> We collect the information you enter during registration or while using the application (name, email address, etc.). We also collect data via cookies to improve your browsing experience.<br><br>3. <strong>Use of Data:</strong> The data collected is used to:<br>&nbsp;&nbsp;&nbsp;&nbsp;- Manage your account and provide related services.<br>&nbsp;&nbsp;&nbsp;&nbsp;- Improve our website and application.<br>&nbsp;&nbsp;&nbsp;&nbsp;- Communicate with you (information, updates, promotional offers).<br><br>4. <strong>Data Security:</strong> We implement security measures to protect your data against unauthorized access.<br><br>5. <strong>Your Rights:</strong> You have the right to access, rectify, and delete your personal data. To exercise these rights, please contact us at the provided email address.<br><br>6. <strong>Modifications:</strong> This policy may be modified. Any changes will be published on this page.",
+        darkModeButton: "Dark Mode"
+      },
+      it: {
+        title: "Politica sulla Privacy - Connect & Move",
+        headerTitle: "Connect & Move",
+        navHome: "Home",
+        navVision: "Contactto",
+        navTerms: "Termini d'Uso",
+        navPrivacy: "Politica sulla Privacy",
+        navLegal: "Note Legali",
+        privacyTitle: "Politica sulla Privacy",
+        privacyText: "1. <strong>Introduzione:</strong> La protezione della tua privacy è una priorità. Questa politica spiega come raccogliamo, utilizziamo e proteggiamo i dati personali che ci fornisci.<br><br>2. <strong>Dati Raccolti:</strong> Raccogliamo le informazioni che inserisci durante la registrazione o durante l'utilizzo dell'applicazione (nome, indirizzo email, ecc.). Raccogliamo inoltre dati tramite cookie per migliorare la tua esperienza di navigazione.<br><br>3. <strong>Utilizzo dei Dati:</strong> I dati raccolti sono utilizzati per:<br>&nbsp;&nbsp;&nbsp;&nbsp;- Gestire il tuo account e fornire i relativi servizi.<br>&nbsp;&nbsp;&nbsp;&nbsp;- Migliorare il nostro sito e l'applicazione.<br>&nbsp;&nbsp;&nbsp;&nbsp;- Comunicare con te (informazioni, aggiornamenti, offerte promozionali).<br><br>4. <strong>Sicurezza dei Dati:</strong> Implementiamo misure di sicurezza per proteggere i tuoi dati da accessi non autorizzati.<br><br>5. <strong>I Tuoi Diritti:</strong> Hai il diritto di accedere, rettificare e cancellare i tuoi dati personali. Per esercitare questi diritti, contattaci all'indirizzo email indicato.<br><br>6. <strong>Modifiche:</strong> Questa politica può essere modificata. Qualsiasi modifica sarà pubblicata su questa pagina.",
+        darkModeButton: "Modalità scura"
+      }
+    };
+
+    function changeLanguage() {
+      const lang = document.getElementById("languageSelector").value;
+      document.documentElement.lang = lang;
+      document.title = translations[lang].title;
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (translations[lang][key]) {
+          el.innerHTML = translations[lang][key];
+        }
+      });
+    }
+
+    function toggleDarkMode() {
+      document.body.classList.toggle('dark-mode');
+    }
+
+    // Initialisation de la langue par défaut au chargement
+    changeLanguage();
+  </script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-import React, {
+﻿import React, {
   useState,
   useEffect,
   useLayoutEffect,
@@ -9,11 +9,13 @@ import {
   View,
   Text,
   Pressable,
-  Image,
   FlatList,
   RefreshControl,
   Alert,
   StatusBar,
+  Dimensions,
+  Platform,
+  Linking,
 } from "react-native";
 import {
   collection,
@@ -27,31 +29,43 @@ import {
 } from "@react-native-firebase/firestore";
 import { auth, db } from "../../config/firebase";
 import Header from "../components/Header";
-import { Ionicons } from "@expo/vector-icons";
-import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import Animated, {
+  FadeIn,
+  FadeOutDown,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+  withSequence,
+  withSpring,
+} from "react-native-reanimated";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { COLORS } from "../styles/colors";
 import { FontAwesome } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
-import * as TrackingTransparency from "expo-tracking-transparency";
 import * as Constants from "expo-constants";
 import * as Device from "expo-device";
 import { openSettings } from "../utils/allFunctions";
 import sendNotifs from "../utils/sendNotifs";
 import FlashMessage, { showMessage } from "react-native-flash-message";
-import { LinearGradient } from "expo-linear-gradient";
-import { useColorScheme } from "nativewind";
-import Purchases from "react-native-purchases";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Image as FastImage } from "expo-image";
+import { useThemeContext } from "../ThemeProvider";
+import { useSubscription, SUBSCRIPTION_TYPES } from "../contexts/SubscriptionContext";
 import InfoCard from "../components/InfoCard";
+import InfoCardModal from "../components/InfoCardModal";
 import PageLoader from "../components/Loaders/PageLoader";
 import { getDistance } from "geolib";
 import Loader from "../components/Loader";
-
-import { requestTrackingPermissionsAsync } from "expo-tracking-transparency";
+import LoginPromptModal from "../components/LoginPromptModal";
+import CommentsModal from "../components/CommentsModal";
+import ActivityCard from "../components/ActivityCard";
 import i18n from "../../i18n";
+import { useTabBar } from "../contexts/TabBarContext";
+import { checkVersion } from "react-native-store-version";
+import SwipeHandTutorial from "../components/SwipeHandTutorial";
+import PermissionsModal from "../components/PermissionsModal";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -62,118 +76,120 @@ Notifications.setNotificationHandler({
   }),
 });
 
-// Notifications.scheduleNotificationAsync({
-//   content: {
-//     title: 'Look at that notification',
-//     body: "I'm so proud of myself!",
-//   },
-//   trigger: null,
-// });
-
 // --- Constantes ---
-const ENTITLEMENT_LEVELS = {
-  GRATUIT: "gratuit",
-  PRO: "pro",
-  PREMIUM: "premium",
-};
-const AVERAGE_SPEED_KMH = 60; // Vitesse moyenne pour l'estimation du temps de trajet
-const EARTH_RADIUS_KM = 6371; // Rayon de la Terre en km
+// Utiliser SUBSCRIPTION_TYPES du contexte pour la cohérence
+const ENTITLEMENT_LEVELS = SUBSCRIPTION_TYPES;
+const AVERAGE_SPEED_KMH = 60;
+const EARTH_RADIUS_KM = 6371;
 
 const Home = ({ route }) => {
   // --- Hooks et Thème ---
-  const { colorScheme } = useColorScheme();
-  const isDarkMode = colorScheme === "dark";
+  const { isDarkMode } = useThemeContext();
+  const { subscription, syncWithRevenueCat } = useSubscription();
   const navigation = useNavigation();
-  const currentUser = auth.currentUser; // Obtenir une seule fois
+  const currentUser = auth.currentUser;
   const selectedCategory = route?.params?.selectedCategory || null;
   const user = auth.currentUser;
+  const { setIsTabBarVisible } = useTabBar();
+  const scrollY = useRef(0);
+  const lastScrollY = useRef(0);
+  const scrollDirection = useRef(null);
+  const scrollDistance = useRef(0);
+  const headerScrollY = useSharedValue(0);
 
   // --- États ---
   const [notif, setNotif] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [userInfo, setUserInfo] = useState(null);
   const [parrain, setParrain] = useState(true);
-  const [entitlement, setEntitlement] = useState(ENTITLEMENT_LEVELS.GRATUIT);
+  // entitlement est maintenant géré par useSubscription (variable: subscription)
   const [userLocation, setUserLocation] = useState(null);
   const [userPostalCode, setUserPostalCode] = useState(null);
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showLocationWarning, setShowLocationWarning] = useState(false); // Pour gérer l'affichage du message d'avertissement
+  const [showLocationWarning, setShowLocationWarning] = useState(false);
   const [
     showNotificationPermissionWarning,
     setShowNotificationPermissionWarning,
-  ] = useState(false); // Pour gérer l'avertissement des notifs
+  ] = useState(false);
+  const [currentInfoCardIndex, setCurrentInfoCardIndex] = useState(0);
+  const [showModal, setShowModal] = useState(false);
+  const [hasScrolled, setHasScrolled] = useState(false);
+  const [scrollCount, setScrollCount] = useState(0);
+  const [dismissedModals, setDismissedModals] = useState(new Set());
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  const [loginPromptAction, setLoginPromptAction] = useState("like");
+  const [showComments, setShowComments] = useState(false);
+  const [selectedActivityId, setSelectedActivityId] = useState(null);
+  const [needsUpdate, setNeedsUpdate] = useState(false);
+  const [storeUrl, setStoreUrl] = useState(null);
+  const [showSwipeTutorial, setShowSwipeTutorial] = useState(false);
+  const [showPermissionsModal, setShowPermissionsModal] = useState(false);
+
+  // --- Shared values pour les animations ---
+  const floatingButtonsTranslateX = useSharedValue(0);
+  const isScrollingValue = useSharedValue(false);
+  const scrollDirectionValue = useSharedValue(0); // 0 = none, 1 = down, -1 = up
+  const lastScrollYForDirection = useRef(0);
+  const filterButtonScale = useSharedValue(1);
+  const filterButtonOpacity = useSharedValue(1);
+  const filterButtonTimeoutRef = useRef(null);
 
   // --- Références pour les listeners de notification ---
   const notificationListener = useRef(null);
   const responseListener = useRef(null);
 
   useFocusEffect(
-  useCallback(() => {
-    const timer = setTimeout(() => {
-      const checkUser = async () => {
-        const user = auth.currentUser;
-        if (!user) return;
+    useCallback(() => {
+      const timer = setTimeout(() => {
+        const checkUser = async () => {
+          const user = auth.currentUser;
+          if (!user) return;
 
-        try {
-          await user.reload();
+          try {
+            await user.reload();
 
-          // Vérifier si l'authentification a été faite par téléphone
-          const isPhoneAuth = user.providerData.some(
-            (provider) => provider.providerId === "phone"
-          );
+            // La vérification d'email et du compte bloqué sont maintenant gérées par le Navigator
+            // via VerifyEmail avec le système de code de vérification et BloqueCompte
 
-          if (!isPhoneAuth && !user.emailVerified) {
-            navigation.replace("ConfirmEmail");
-            return;
-          }
+            const userDoc = await getDoc(doc(db, "users", user.uid));
+            if (userDoc.exists()) {
+              const data = userDoc.data();
 
-          const userDoc = await getDoc(doc(db, "users", user.uid));
-          if (userDoc.exists()) {
-            const data = userDoc.data();
-
-            if (data.isActive === false) {
-              navigation.replace("BloqueCompte");
-              return;
+              // Vérifier si le profil est complet
+              if (!data?.interests || !data?.location?.address) {
+                navigation.navigate("Profil", {
+                  screen: "EditProfile",
+                  params: { newProfile: true },
+                });
+                return;
+              }
             }
-
-            if (!data?.interests || !data?.location?.address) {
-              navigation.navigate("Profil", {
-                screen: "EditProfile",
-                params: { newProfile: true },
-              });
-              return;
-            }
+          } catch {
+            Alert.alert(i18n.t("erreur"), i18n.t("impossible_verifier_compte"));
           }
-        } catch {
-          Alert.alert("Erreur", "Impossible de vérifier votre compte.");
-        }
-      };
+        };
 
-      checkUser();
-    }, 500);
+        checkUser();
+      }, 500);
 
-    return () => clearTimeout(timer);
-  }, [navigation])
-);
+      return () => clearTimeout(timer);
+    }, [navigation])
+  );
 
-
-  // Récupère la localisation et le code postal
   const getUserLocationAndPostalCode = useCallback(async () => {
     try {
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
-        setShowLocationWarning(true); // Active l'affichage du message
+        setShowLocationWarning(true);
         return;
       }
-      setShowLocationWarning(false); // Désactive si la permission est accordée
+      setShowLocationWarning(false);
 
       let location = await Location.getCurrentPositionAsync({});
       setUserLocation(location);
 
-      // Géocodage inverse pour obtenir l'adresse (incluant le code postal)
       let address = await Location.reverseGeocodeAsync(location.coords);
-      // Vérification plus robuste de l'existence de l'adresse et du code postal
       if (address && address.length > 0 && address[0]?.postalCode) {
         setUserPostalCode(address[0].postalCode);
       }
@@ -182,61 +198,35 @@ const Home = ({ route }) => {
         "Erreur lors de la récupération de la localisation :",
         error
       );
-      setShowLocationWarning(true); // Affiche aussi le message en cas d'erreur
+      setShowLocationWarning(true);
     }
-  }, []); // useCallback pour la stabilité de la référence
+  }, []);
 
-  // Récupère les informations utilisateur et l'abonnement
   const fetchInitialUserData = useCallback(async () => {
     if (!currentUser) {
-      setEntitlement(""); // ou une valeur par défaut appropriée
       setLoading(false);
       return;
     }
 
     try {
-      // Récupérer l'info utilisateur
-
       const userDoc = await getDoc(doc(db, "users", currentUser.uid));
       if (userDoc.exists()) {
         setUserInfo(userDoc.data());
       }
 
-      // Récupérer l'abonnement (Entitlement)
-      const purchaserInfo = await Purchases.getCustomerInfo();
-      const entitlements = purchaserInfo.entitlements.active;
-
-      let currentEntitlement = ENTITLEMENT_LEVELS.GRATUIT;
-      if (entitlements.premium) {
-        // Vérifier premium en premier s'il est supérieur
-        currentEntitlement = ENTITLEMENT_LEVELS.PREMIUM;
-      } else if (entitlements.pro) {
-        currentEntitlement = ENTITLEMENT_LEVELS.PRO;
-      }
-
-      setEntitlement(currentEntitlement);
-      await AsyncStorage.setItem("sub", currentEntitlement);
-
-      // Mise à jour Firestore (optionnel, dépend si 'sub' doit être synchro)
-      await setDoc(
-        doc(db, "users", currentUser.uid),
-        { sub: currentEntitlement },
-        { merge: true }
-      );
+      // L'abonnement est maintenant géré par le SubscriptionContext
+      // On peut déclencher une sync si nécessaire
+      await syncWithRevenueCat();
     } catch (error) {
       console.error(
         "Erreur lors de la récupération des données initiales utilisateur :",
         error
       );
-      setEntitlement("Erreur"); // Indique un problème
-    } finally {
-      // setLoading(false) est géré par fetchActivities car c'est souvent le plus long
     }
-  }, [currentUser]); // Dépend de currentUser
+  }, [currentUser, syncWithRevenueCat]);
 
-  // Fonction pour enregistrer le token push
   const registerForPushNotificationsAsync = useCallback(async () => {
-    if (!Device.isDevice) return null; // Pas de token sur simulateur
+    if (!Device.isDevice) return null;
 
     try {
       const { status: existingStatus } =
@@ -248,13 +238,13 @@ const Home = ({ route }) => {
       }
 
       if (finalStatus !== "granted") {
-        setShowNotificationPermissionWarning(true); // Avertir l'utilisateur
+        setShowNotificationPermissionWarning(true);
         return null;
       }
       setShowNotificationPermissionWarning(false);
 
       const token = await Notifications.getExpoPushTokenAsync({
-        projectId: Constants.expoConfig?.extra?.eas?.projectId, // Chemin plus sûr
+        projectId: Constants.expoConfig?.extra?.eas?.projectId,
       });
       return token.data;
     } catch (error) {
@@ -266,7 +256,6 @@ const Home = ({ route }) => {
     }
   }, []);
 
-  // Ajoute le token à l'utilisateur Firestore
   const addExpoPushTokenToUser = useCallback(async (token, currentUser) => {
     if (!token || !currentUser) return;
 
@@ -279,15 +268,10 @@ const Home = ({ route }) => {
     } catch (error) {
       console.error("Erreur lors de l'ajout du token Expo Push :", error);
     }
-
-    const trackingPermission =
-      await TrackingTransparency.requestPermissionsAsync();
-    console.log("Tracking permission status:", trackingPermission.status);
+    // Le tracking est maintenant géré via PermissionsModal
   }, []);
 
-  // Calcul du temps de trajet estimé (Haversine)
   const calculateTravelTime = useCallback((lat1, lon1, lat2, lon2) => {
-    // Fonction interne pour convertir degrés en radians
     const toRad = (value) => (value * Math.PI) / 180;
 
     const R = EARTH_RADIUS_KM;
@@ -313,11 +297,10 @@ const Home = ({ route }) => {
     } else {
       const hours = Math.floor(totalMinutes / 60);
       const minutes = totalMinutes % 60;
-      return `+${hours}h${minutes > 0 ? String(minutes).padStart(2, "0") : ""}`; // Formatage hh:mm
+      return `+${hours}h${minutes > 0 ? String(minutes).padStart(2, "0") : ""}`;
     }
-  }, []); // Aucune dépendance externe directe
+  }, []);
 
-  // Récupère les activités
   const fetchActivities = useCallback(async () => {
     try {
       const today = new Date();
@@ -348,7 +331,7 @@ const Home = ({ route }) => {
             if (userDocSnap.exists()) {
               const userData = userDocSnap.data();
               creatorData = {
-                username: userData.username || "Utilisateur",
+                username: userData.username || i18n.t("utilisateur"),
                 sub: userData.sub || ENTITLEMENT_LEVELS.GRATUIT,
                 photoURL: userData.photoURL,
               };
@@ -435,61 +418,123 @@ const Home = ({ route }) => {
     }, 1000);
   };
 
-  // Configuration de l'en-tête
   useLayoutEffect(() => {
     navigation.setOptions({
-      header: () => <Header />,
+      header: () => <Header scrollY={headerScrollY} isScrollingValue={isScrollingValue} scrollDirectionValue={scrollDirectionValue} />,
     });
-  }, [navigation]);
+  }, [navigation, headerScrollY, isScrollingValue, scrollDirectionValue]);
 
   useFocusEffect(
     useCallback(() => {
-      const isLight = colorScheme !== "dark";
-      StatusBar.setBarStyle(isLight ? "dark-content" : "light-content");
-    }, [colorScheme])
+      StatusBar.setBarStyle(isDarkMode ? "light-content" : "dark-content");
+
+      // Réafficher la tab bar quand on revient sur l'écran Home
+      setIsTabBarVisible(true);
+    }, [isDarkMode, setIsTabBarVisible])
   );
 
-  // Récupération des données utilisateur et abonnement au focus
   useFocusEffect(
     useCallback(() => {
       fetchInitialUserData();
-      return () => {
-        // console.log("Screen lost focus");
-      };
+      return () => {};
     }, [fetchInitialUserData])
   );
 
-  // Récupération de la localisation (une seule fois au montage)
+  // Update push token every time we come to Home screen
+  useFocusEffect(
+    useCallback(() => {
+      const updatePushToken = async () => {
+        if (!currentUser) return;
+
+        try {
+          const token = await registerForPushNotificationsAsync();
+          if (token) {
+            await addExpoPushTokenToUser(token, currentUser);
+          }
+        } catch (error) {
+          console.error('Erreur lors de la mise à jour du token push:', error);
+        }
+      };
+
+      updatePushToken();
+      return () => {};
+    }, [currentUser, registerForPushNotificationsAsync, addExpoPushTokenToUser])
+  );
+
   useEffect(() => {
     getUserLocationAndPostalCode();
-  }, [getUserLocationAndPostalCode]); // getUserLocationAndPostalCode est dans useCallback
+  }, [getUserLocationAndPostalCode]);
 
-  // Enregistrement pour les notifications push (une seule fois au montage)
+  // Vérifier si on doit afficher le modal de permissions
   useEffect(() => {
-    const managePushToken = async () => {
-      const token = await registerForPushNotificationsAsync();
-      if (token) {
-        addExpoPushTokenToUser(token);
+    const checkPermissionsFlow = async () => {
+      try {
+        const hasCompletedFlow = await AsyncStorage.getItem('hasCompletedPermissionsFlow');
+        if (!hasCompletedFlow && !loading) {
+          // Afficher le modal après un petit délai pour que la page soit chargée
+          setTimeout(() => {
+            setShowPermissionsModal(true);
+          }, 1500);
+        } else {
+          // Si le flow est déjà terminé, gérer les tokens normalement
+          const token = await registerForPushNotificationsAsync();
+          if (token) {
+            addExpoPushTokenToUser(token);
+          }
+        }
+      } catch (error) {
+        console.error('Erreur lors de la vérification du flow de permissions:', error);
       }
     };
-    managePushToken();
-  }, [registerForPushNotificationsAsync, addExpoPushTokenToUser]);
+    checkPermissionsFlow();
+  }, [loading, registerForPushNotificationsAsync, addExpoPushTokenToUser]);
+
+  useEffect(() => {
+    const checkNotificationPermissions = async () => {
+      try {
+        const { status } = await Notifications.getPermissionsAsync();
+        if (status === "granted") {
+          setNotif(false);
+        } else {
+          setNotif(true);
+        }
+      } catch (error) {
+        console.error("Erreur lors de la vérification des permissions:", error);
+      }
+    };
+    checkNotificationPermissions();
+  }, []);
+
+  // Vérifier si le tutoriel de swipe doit être affiché
+  useEffect(() => {
+    const checkSwipeTutorial = async () => {
+      try {
+        const hasSeenTutorial = await AsyncStorage.getItem('hasSeenSwipeTutorial');
+        if (!hasSeenTutorial && !loading) {
+          // Afficher le tutoriel après un petit délai pour que la page soit chargée
+          setTimeout(() => {
+            setShowSwipeTutorial(true);
+          }, 1000);
+        }
+      } catch (error) {
+        console.error('Erreur lors de la vérification du tutoriel:', error);
+      }
+    };
+    checkSwipeTutorial();
+  }, [loading]);
 
   useEffect(() => {
     notificationListener.current =
       Notifications.addNotificationReceivedListener((notification) => {
         console.log("Notification reçue:", notification);
-        // Potentiellement mettre à jour un badge, etc.
       });
 
     responseListener.current =
       Notifications.addNotificationResponseReceivedListener((response) => {
         console.log("Réponse à la notification:", response);
-        // Naviguer vers l'écran approprié basé sur la notification
         navigation.navigate("Notifications");
       });
 
-    // Cleanup: supprimer les listeners au démontage
     return () => {
       if (notificationListener.current) {
         Notifications.removeNotificationSubscription(
@@ -499,15 +544,178 @@ const Home = ({ route }) => {
       if (responseListener.current) {
         Notifications.removeNotificationSubscription(responseListener.current);
       }
+      // Nettoyer le timeout du bouton filtre
+      if (filterButtonTimeoutRef.current) {
+        clearTimeout(filterButtonTimeoutRef.current);
+        filterButtonTimeoutRef.current = null;
+      }
     };
-  }, [navigation]); // Dépend de navigation pour le listener de réponse
-
-  // Fetch des activités quand la catégorie ou la localisation change (et au focus)
+  }, [navigation]);
 
   useEffect(() => {
+    setLoading(true);
     fetchActivities();
-    requestTrackingPermissionsAsync();
+    // Le tracking est maintenant demandé via PermissionsModal
   }, [selectedCategory]);
+
+  // Vérifier la version de l'application au montage
+  useEffect(() => {
+    const checkAppVersion = async () => {
+      try {
+        const result = await checkVersion({
+          iosStoreURL: "https://apps.apple.com/app/id6740539737",
+          androidStoreURL: "https://play.google.com/store/apps/details?id=com.connectandmove",
+          country: "fr", // Code pays pour le store
+        });
+
+        if (result.result === "new") {
+          setNeedsUpdate(true);
+          // Stocker l'URL du store appropriée selon la plateforme
+          if (Platform.OS === "ios") {
+            setStoreUrl("https://apps.apple.com/app/id6740539737");
+          } else {
+            setStoreUrl("https://play.google.com/store/apps/details?id=com.connectandmove");
+          }
+        }
+      } catch (error) {
+        console.log("Erreur lors de la vérification de version:", error);
+        // En cas d'erreur, on ne fait rien (pas de carte de mise à jour)
+      }
+    };
+
+    checkAppVersion();
+  }, []);
+
+  // Afficher les modals après un certain temps en fonction du contexte
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!hasScrolled && !showModal && dismissedModals.size === 0) {
+        setShowModal(true);
+      }
+    }, 8000); // 8 secondes pour toutes les modals
+
+    return () => clearTimeout(timer);
+  }, [hasScrolled, showModal, dismissedModals]);
+
+  const handleScroll = useCallback(
+    (event) => {
+      const offsetY = event.nativeEvent.contentOffset.y;
+      const contentHeight = event.nativeEvent.contentSize.height;
+      const layoutHeight = event.nativeEvent.layoutMeasurement.height;
+
+      // Update header scroll animation
+      headerScrollY.value = offsetY;
+
+      if (!hasScrolled && offsetY > 100) {
+        setHasScrolled(true);
+      }
+
+      // Gestion de la tab bar au scroll avec délai
+      const currentScrollY = offsetY;
+      const scrollDiff = currentScrollY - lastScrollY.current;
+
+      // Vérifier qu'on n'est pas au début ou à la fin (bounce)
+      const isAtTop = offsetY <= 0;
+      const isAtBottom = offsetY + layoutHeight >= contentHeight - 10;
+      const isInBounce = isAtTop || isAtBottom;
+
+      // Déterminer la direction du scroll pour le header uniquement si on scrolle activement et pas dans le bounce
+      if (isScrollingValue.value && !isInBounce) {
+        const scrollDiffDirection = currentScrollY - lastScrollYForDirection.current;
+        // Augmenter le seuil pour éviter les changements trop fréquents
+        if (Math.abs(scrollDiffDirection) > 20) {
+          const newDirectionValue = scrollDiffDirection > 0 ? 1 : -1; // 1 = down, -1 = up
+          if (scrollDirectionValue.value !== newDirectionValue) {
+            scrollDirectionValue.value = newDirectionValue;
+          }
+          lastScrollYForDirection.current = currentScrollY;
+        }
+      } else if (isInBounce) {
+        // Reset la direction si on est dans le bounce
+        scrollDirectionValue.value = 0;
+      }
+
+      // Déterminer la direction du scroll
+      const currentDirection = scrollDiff > 0 ? 'down' : 'up';
+
+      // Si on est tout en haut, toujours afficher la tab bar et réinitialiser
+      if (currentScrollY < 50) {
+        setIsTabBarVisible(true);
+        scrollDirection.current = null;
+        scrollDistance.current = 0;
+      } else if (Math.abs(scrollDiff) > 2) {
+        // Si la direction change, réinitialiser la distance
+        if (scrollDirection.current !== currentDirection) {
+          scrollDirection.current = currentDirection;
+          scrollDistance.current = 0;
+        }
+
+        // Accumuler la distance de scroll dans la même direction
+        scrollDistance.current += Math.abs(scrollDiff);
+
+        // Masquer la tab bar seulement après avoir scrollé 100px vers le bas
+        if (currentDirection === 'down' && scrollDistance.current > 100) {
+          setIsTabBarVisible(false);
+        }
+        // Afficher la tab bar immédiatement lors du scroll vers le haut
+        else if (currentDirection === 'up') {
+          setIsTabBarVisible(true);
+          scrollDistance.current = 0;
+        }
+      }
+
+      lastScrollY.current = currentScrollY;
+
+      // Afficher la modal tous les 3 scrolls significatifs pour tous les utilisateurs
+      if (
+        offsetY > 200 * (scrollCount + 1) &&
+        !showModal &&
+        dismissedModals.size === 0
+      ) {
+        setScrollCount((prev) => prev + 1);
+
+        if ((scrollCount + 1) % 3 === 0) {
+          setShowModal(true);
+        }
+      }
+    },
+    [hasScrolled, scrollCount, showModal, dismissedModals, scrollDirectionValue]
+  );
+
+  const handleScrollBeginDrag = useCallback(() => {
+    // Annuler le timeout de réapparition si l'utilisateur recommence à scroller
+    if (filterButtonTimeoutRef.current) {
+      clearTimeout(filterButtonTimeoutRef.current);
+      filterButtonTimeoutRef.current = null;
+    }
+
+    // Quand l'utilisateur commence à scroller avec son doigt
+    isScrollingValue.value = true;
+    floatingButtonsTranslateX.value = withTiming(-200, {
+      duration: 300,
+    });
+
+    // Masquer le bouton filtre
+    filterButtonScale.value = withTiming(0, { duration: 200 });
+    filterButtonOpacity.value = withTiming(0, { duration: 200 });
+  }, [floatingButtonsTranslateX, isScrollingValue, filterButtonScale, filterButtonOpacity]);
+
+  const handleScrollEndDrag = useCallback(() => {
+    // Quand l'utilisateur relâche son doigt
+    isScrollingValue.value = false;
+    scrollDirectionValue.value = 0; // Reset à none
+    floatingButtonsTranslateX.value = withSpring(0, {
+      damping: 15,
+      stiffness: 150,
+    });
+
+    // Attendre 1500ms avant de réafficher le bouton filtre (pour voir si l'user va encore scroller)
+    filterButtonTimeoutRef.current = setTimeout(() => {
+      filterButtonScale.value = withSpring(1, { damping: 15, stiffness: 150 });
+      filterButtonOpacity.value = withTiming(1, { duration: 200 });
+      filterButtonTimeoutRef.current = null;
+    }, 1500);
+  }, [floatingButtonsTranslateX, isScrollingValue, scrollDirectionValue, filterButtonScale, filterButtonOpacity]);
 
   useFocusEffect(
     useCallback(() => {
@@ -517,9 +725,7 @@ const Home = ({ route }) => {
           if (accepted !== "true") {
             navigation.navigate("ClufPage");
           }
-        } catch (e) {
-          // Optionnel : gérer l'erreur
-        }
+        } catch (e) {}
       };
       setTimeout(() => {
         checkCluf();
@@ -527,242 +733,350 @@ const Home = ({ route }) => {
     }, [navigation])
   );
 
-  // Affichage des messages d'avertissement (si nécessaire)
   useEffect(() => {
     if (showLocationWarning) {
       showMessage({
-        message:
-          "L'accès à la localisation est nécessaire pour trier les évènements par proximité.",
+        message: i18n.t("acces_localisation_necessaire_tri"),
         type: "warning",
-        duration: 5000, // Afficher pendant 5 secondes
+        duration: 5000,
       });
-      // Optionnel: remettre à false après un délai si vous ne voulez pas le remontrer sans nouvelle tentative
-      // const timer = setTimeout(() => setShowLocationWarning(false), 6000);
-      // return () => clearTimeout(timer);
     }
   }, [showLocationWarning]);
 
   useEffect(() => {
     if (showNotificationPermissionWarning) {
       showMessage({
-        message:
-          "Les permissions de notification sont requises pour recevoir des alertes.",
+        message: i18n.t("permissions_notification_requises"),
         type: "warning",
         duration: 5000,
       });
     }
   }, [showNotificationPermissionWarning]);
 
-  const formatDisplayDate = (dateString) => {
-    // Implémentez votre logique de formatage de date ici
-    // Exemple simple:
-    try {
-      const parts = dateString.split("/"); // Assume JJ/MM/AAAA
-      const date = new Date(parts[2], parts[1] - 1, parts[0]);
-      return date.toLocaleDateString("fr-FR", {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-      });
-    } catch (e) {
-      return dateString; // Retourne la chaîne originale en cas d'erreur
-    }
-  };
+  // Gestion du style animé des boutons flottants
+  const floatingButtonsAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: floatingButtonsTranslateX.value }],
+  }));
 
-  const formatLocationText = (locationString) => {
-    // Implémentez votre logique de formatage de lieu ici
-    return locationString || "Lieu non spécifié";
-  };
+  // Style animé pour le bouton filtre
+  const filterButtonAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: filterButtonScale.value }],
+    opacity: filterButtonOpacity.value,
+  }));
 
-  const formatDistance = (distanceInMeters) => {
-    if (
-      distanceInMeters === null ||
-      distanceInMeters === undefined ||
-      distanceInMeters === Infinity ||
-      isNaN(distanceInMeters)
-    ) {
-      return null;
-    }
-    if (distanceInMeters < 1000) {
-      return `${Math.round(distanceInMeters)} m`;
-    } else {
-      return `${(distanceInMeters / 1000).toFixed(1)} km`; // Une décimale pour les km
-    }
-  };
-  // --- Fin Helpers ---
-
-  const ActivityItem = React.memo(({ item, userInfo, userPostalCode }) => {
-    const navigation = useNavigation();
-    const { colorScheme } = useColorScheme(); // Pour obtenir le thème dark/light si besoin pour les icônes par ex.
-    const isDarkMode = colorScheme === "dark";
-
-    // --- Préparation des données ---
-    const imageUrl = item.images?.[0];
-    const displayDate = formatDisplayDate(item.date);
-    const locationText = formatLocationText(item.location); // Formatage du lieu
-    const travelTimeText = item.travelTime; // Directement la chaîne "+Xmin" ou "+XhY"
-    const distanceText = formatDistance(item.distanceForSort); // Formatage "X m" ou "Y.Z km"
-
-    const avatarFallback = require("../../assets/img/noimg.jpg"); // Assurez-vous que le chemin est correct
-
-    const handlePress = () => {
-      navigation.navigate("ActivityDetails", {
-        userInfo,
-        activityId: item.id,
-        image: imageUrl,
-        // Passez les données pertinentes à l'écran de détails
-        travelTime: item.travelTime,
-        distanceInMeters: item.distanceForSort, // Passez la valeur numérique si besoin pour d'autres calculs
-        userPostalCode,
-      });
-    };
+  // Composant InfoCard pour chaque carte d'information (Full Width avec hauteur fixe)
+  const InfoActionCard = React.memo(({ icon, title, subtitle, onPress, color = "#F97316", iconLib = "MaterialCommunityIcons", width }) => {
+    const Icon = iconLib === "Ionicons" ? Ionicons : MaterialCommunityIcons;
 
     return (
-      <Animated.View
-        entering={FadeIn.duration(100)}
-        exiting={FadeOut.duration(150)}
-        className="mb-6 mx-3 bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-md dark:shadow-black/40 border border-gray-200 dark:border-gray-700 overflow-hidden"
-      >
-        <Pressable onPress={handlePress} className="flex-col">
-          {/* === Section Image === */}
-          <FastImage
-            source={imageUrl ? imageUrl : avatarFallback}
-            style={{ width: "100%", aspectRatio: 16 / 9 }}
-            contentFit="cover"
-          />
-
-          {/* === Bloc d'informations Principal === */}
-          <View className="p-4">
-            {/* Titre */}
-            <Text
-              style={{ fontFamily: "Inter_400Regular" }}
-              className="text-lg text-gray-900 dark:text-white mb-3"
-              numberOfLines={2}
-            >
-              {item.title || "Événement"}
-            </Text>
-
-            {/* Ligne d'infos clés */}
-            <View className="flex-row items-center flex-wrap mb-4">
-              {/* Date */}
-              <View className="flex-row items-center mr-4 mb-1">
-                <Ionicons
-                  name="calendar-outline"
-                  size={16}
-                  color={isDarkMode ? "#9CA3AF" : "#6B7280"} // Gris adapté au thème
-                  style={{ marginRight: 6 }} // Utiliser style pour le margin pour éviter conflit className
-                />
-                <Text
-                  style={{ fontFamily: "Inter_400Regular" }}
-                  className="text-xs text-gray-600 dark:text-gray-300"
-                >
-                  {displayDate}
-                </Text>
-              </View>
-
-              {/* Lieu */}
-              <View className="flex-row items-center mr-4 mb-1">
-                <Ionicons
-                  name="location-outline"
-                  size={16}
-                  color={isDarkMode ? "#9CA3AF" : "#6B7280"}
-                  style={{ marginRight: 6 }}
-                />
-                <Text
-                  style={{ fontFamily: "Inter_400Regular" }}
-                  className="text-xs text-gray-600 dark:text-gray-300"
-                >
-                  {locationText}
-                </Text>
-              </View>
-
-              {/* Temps de trajet estimé (si disponible) */}
-              {travelTimeText && (
-                <View className="flex-row items-center mr-4 mb-1">
-                  <Ionicons
-                    name="time-outline" // Ou "walk-outline", "car-outline" selon le contexte
-                    size={16}
-                    color={isDarkMode ? "#9CA3AF" : "#6B7280"}
-                    style={{ marginRight: 6 }}
-                  />
-                  <Text
-                    style={{ fontFamily: "Inter_400Regular" }}
-                    className="text-xs text-gray-600 dark:text-gray-300"
-                  >
-                    Environ {travelTimeText} de route
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            {/* Séparateur */}
-            <View className="border-t border-gray-100 dark:border-gray-700 my-2"></View>
-
-            {/* === Section Créateur et Badge === */}
-            <View className="flex-row items-center justify-between pt-2">
-              {/* Avatar, Nom, Distance */}
-              <View className="flex-row items-center flex-1 mr-3">
-                <Image
-                  source={
-                    item.creatorAvatar
-                      ? { uri: item.creatorAvatar }
-                      : avatarFallback
-                  }
-                  className="w-8 h-8 rounded-full"
-                />
-                <View className="ml-2 flex-1">
-                  {/* Nom Créateur */}
-                  <Text
-                    style={{ fontFamily: "Inter_500Medium" }}
-                    className="text-sm text-gray-700 dark:text-gray-300"
-                    numberOfLines={1}
-                  >
-                    Par {item.creatorName || "Organisateur"}
-                  </Text>
-                  {/* Distance formatée (si disponible) */}
-                  {distanceText && (
-                    <Text
-                      style={{ fontFamily: "Inter_400Regular" }}
-                      className="text-xs text-gray-500 dark:text-gray-400 mt-0.5"
-                      numberOfLines={1}
-                    >
-                      À {distanceText} {/* Affiche "X m" ou "Y.Z km" */}
-                    </Text>
-                  )}
-                </View>
-              </View>
-
-              {/* Badge Pro/Perso */}
+      <View style={{ width, paddingHorizontal: 16 }}>
+        <Pressable
+          onPress={onPress}
+          style={({ pressed }) => ({
+            opacity: pressed ? 0.9 : 1,
+            transform: [{ scale: pressed ? 0.98 : 1 }],
+          })}
+        >
+          <View
+            style={{
+              backgroundColor: isDarkMode ? COLORS.bgDarkSecondary : "#FFFFFF",
+              padding: 18,
+              borderRadius: 12,
+              borderWidth: 1.5,
+              borderColor: isDarkMode ? `${color}4D` : `${color}33`,
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 3 },
+              shadowOpacity: 0.1,
+              shadowRadius: 10,
+              elevation: 4,
+              minHeight: 110, // Hauteur minimale fixe pour toutes les cartes
+            }}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
               <View
-                className={`py-0.5 px-2 rounded ${
-                  item.creatorSub === "pro" || item.creatorSub === "premium" // Considérer premium comme pro pour le badge? Adaptez si besoin.
-                    ? "bg-green-100 dark:bg-green-900"
-                    : "bg-blue-100 dark:bg-blue-900"
-                }`}
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 8,
+                  backgroundColor: isDarkMode ? `${color}26` : `${color}1A`,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginRight: 14,
+                }}
               >
+                <Icon name={icon} size={24} color={color} />
+              </View>
+
+              <View style={{ flex: 1, marginRight: 12 }}>
                 <Text
-                  style={{ fontFamily: "Inter_500Medium" }}
-                  className={`text-xs font-medium ${
-                    item.creatorSub === "pro" || item.creatorSub === "premium"
-                      ? "text-green-700 dark:text-green-200"
-                      : "text-blue-700 dark:text-blue-200"
-                  }`}
+                  style={{
+                    fontFamily: "Inter_600SemiBold",
+                    fontSize: 16,
+                    color: isDarkMode ? "#FFFFFF" : "#0F172A",
+                    letterSpacing: -0.4,
+                    marginBottom: 3,
+                  }}
+                  numberOfLines={1}
                 >
-                  {item.creatorSub === "pro" || item.creatorSub === "premium"
-                    ? "PRO"
-                    : "PERSO"}
+                  {title}
                 </Text>
+                <Text
+                  style={{
+                    fontFamily: "Inter_400Regular",
+                    fontSize: 14,
+                    color: isDarkMode ? "#94A3B8" : "#64748B",
+                    letterSpacing: -0.2,
+                    lineHeight: 20,
+                  }}
+                  numberOfLines={2}
+                >
+                  {subtitle}
+                </Text>
+              </View>
+
+              <View
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 8,
+                  backgroundColor: color,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
               </View>
             </View>
           </View>
         </Pressable>
-      </Animated.View>
+      </View>
     );
   });
 
+  // Composant principal - Section scrollable d'informations avec pagination
+  const QuickActionsSection = React.memo(() => {
+    const [currentIndex, setCurrentIndex] = React.useState(0);
+    const flatListRef = React.useRef(null);
+    const screenWidth = Dimensions.get('window').width;
+    const cards = [];
+
+    // Card 0: Mise à jour disponible (priorité absolue)
+    if (needsUpdate && storeUrl) {
+      cards.push({
+        id: 'update',
+        icon: 'refresh',
+        iconLib: 'Ionicons',
+        title: i18n.t("mise_a_jour_disponible") || "Mise à jour disponible",
+        subtitle: i18n.t("telecharger_derniere_version") || "Téléchargez la dernière version de l'application",
+        color: "#EF4444",
+        onPress: () => {
+          Linking.openURL(storeUrl).catch((err) => {
+            console.error("Erreur lors de l'ouverture du store:", err);
+            Alert.alert(
+              i18n.t("erreur"),
+              i18n.t("impossible_ouvrir_store") || "Impossible d'ouvrir le store"
+            );
+          });
+        },
+      });
+    }
+
+    // Card 1: Connexion (si non connecté)
+    if (!currentUser) {
+      cards.push({
+        id: 'login',
+        icon: 'medal',
+        iconLib: 'MaterialCommunityIcons',
+        title: i18n.t("rejoignez_la_communaute"),
+        subtitle: i18n.t("interagissez_avec_sportifs"),
+        color: "#F97316",
+        onPress: () => navigation.navigate("Login"),
+      });
+    }
+
+    // Card 2: Notifications désactivées
+    if (currentUser && showNotificationPermissionWarning) {
+      cards.push({
+        id: 'notifications',
+        icon: 'notifications-off',
+        iconLib: 'Ionicons',
+        title: i18n.t("activer_notifications") || "Activer les notifications",
+        subtitle: i18n.t("restez_informe_activites") || "Restez informé des nouvelles activités",
+        color: "#EF4444",
+        onPress: () => openSettings(),
+      });
+    }
+
+    // Card 3: Localisation désactivée
+    if (currentUser && showLocationWarning) {
+      cards.push({
+        id: 'location',
+        icon: 'location-off',
+        iconLib: 'Ionicons',
+        title: i18n.t("activer_localisation") || "Activer la localisation",
+        subtitle: i18n.t("trouvez_activites_proximite") || "Trouvez des activités près de vous",
+        color: "#3B82F6",
+        onPress: () => openSettings(),
+      });
+    }
+
+    // Card 4: Profil incomplet (si certaines infos manquent)
+    if (currentUser && userInfo && (!userInfo.interests || !userInfo.location?.address)) {
+      cards.push({
+        id: 'profile',
+        icon: 'account-edit',
+        iconLib: 'MaterialCommunityIcons',
+        title: i18n.t("completer_profil") || "Complétez votre profil",
+        subtitle: i18n.t("ameliorez_experience") || "Améliorez votre expérience",
+        color: "#8B5CF6",
+        onPress: () => navigation.navigate("Profil", { screen: "EditProfile" }),
+      });
+    }
+
+    // Card 5: Parrainage (toujours affiché si connecté)
+    if (currentUser) {
+      cards.push({
+        id: 'referral',
+        icon: 'gift',
+        iconLib: 'Ionicons',
+        title: i18n.t("parrainez_amis") || "Parrainez vos amis",
+        subtitle: i18n.t("gagnez_recompenses") || "Gagnez des récompenses ensemble",
+        color: "#10B981",
+        onPress: () => navigation.navigate("Profil", { screen: "ReferralPage" }),
+      });
+    }
+
+    // Card 6: Offres premium (si non abonné)
+    if (currentUser && subscription === ENTITLEMENT_LEVELS.GRATUIT) {
+      cards.push({
+        id: 'premium',
+        icon: 'crown',
+        iconLib: 'MaterialCommunityIcons',
+        title: i18n.t("decouvrez_premium") || "Découvrez Premium",
+        subtitle: i18n.t("acces_offres_exclusives") || "Accédez à des offres exclusives",
+        color: "#F59E0B",
+        onPress: () => navigation.navigate("Profil", { screen: "AllOffers" }),
+      });
+    }
+
+    // Card 7: Code promo (si connecté)
+    if (currentUser) {
+      cards.push({
+        id: 'promo',
+        icon: 'ticket-percent',
+        iconLib: 'MaterialCommunityIcons',
+        title: i18n.t("code_promo") || "Code promo",
+        subtitle: i18n.t("entrez_code_promo_reductions") || "Entrez un code promo pour des réductions",
+        color: "#EC4899",
+        onPress: () => navigation.navigate("Profil", { screen: "CodePromo" }),
+      });
+    }
+
+    // Card 8: Comment ça marche (toujours affiché)
+    cards.push({
+      id: 'howItWorks',
+      icon: 'help-circle',
+      iconLib: 'Ionicons',
+      title: i18n.t("comment_ca_marche") || "Comment ça marche ?",
+      subtitle: i18n.t("decouvrez_fonctionnement_app") || "Découvrez le fonctionnement de l'application",
+      color: "#06B6D4",
+      onPress: () => navigation.navigate("Profil", { screen: "HowItsWork" }),
+    });
+
+    if (cards.length === 0) return null;
+
+    const onViewableItemsChanged = React.useRef(({ viewableItems }) => {
+      if (viewableItems.length > 0) {
+        setCurrentIndex(viewableItems[0].index || 0);
+      }
+    }).current;
+
+    const viewabilityConfig = React.useRef({
+      itemVisiblePercentThreshold: 50,
+    }).current;
+
+    // Auto-scroll functionality
+    React.useEffect(() => {
+      if (cards.length <= 1) return; // Pas de scroll automatique s'il n'y a qu'une seule carte
+
+      const interval = setInterval(() => {
+        setCurrentIndex((prevIndex) => {
+          const nextIndex = (prevIndex + 1) % cards.length;
+          flatListRef.current?.scrollToIndex({
+            index: nextIndex,
+            animated: true,
+          });
+          return nextIndex;
+        });
+      }, 5000); // Auto-scroll toutes les 5 secondes
+
+      return () => clearInterval(interval);
+    }, [cards.length]);
+
+    return (
+      <View style={{ marginBottom: 16, marginTop: 8 }}>
+        <FlatList
+          ref={flatListRef}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          data={cards}
+          keyExtractor={(item) => item.id}
+          snapToInterval={screenWidth}
+          decelerationRate="fast"
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={viewabilityConfig}
+          renderItem={({ item }) => (
+            <InfoActionCard
+              icon={item.icon}
+              iconLib={item.iconLib}
+              title={item.title}
+              subtitle={item.subtitle}
+              color={item.color}
+              onPress={item.onPress}
+              width={screenWidth}
+            />
+          )}
+        />
+
+        {cards.length > 1 && (
+          <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 12 }}>
+            {cards.map((_, index) => (
+              <View
+                key={index}
+                style={{
+                  width: currentIndex === index ? 20 : 6,
+                  height: 6,
+                  borderRadius: 3,
+                  backgroundColor: currentIndex === index
+                    ? '#F97316'
+                    : isDarkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.15)',
+                  marginHorizontal: 3,
+                  transition: 'all 0.3s ease',
+                }}
+              />
+            ))}
+          </View>
+        )}
+      </View>
+    );
+  });
+
+  const handleLoginRequired = (actionType = "like") => {
+    setLoginPromptAction(actionType);
+    setShowLoginPrompt(true);
+  };
+
   const renderActivity = useCallback(
-    ({ item }) => <ActivityItem item={item} />,
-    [navigation, userPostalCode]
+    ({ item }) => (
+      <ActivityCard
+        activity={item}
+        userInfo={userInfo}
+        userPostalCode={userPostalCode}
+        onLoginRequired={handleLoginRequired}
+      />
+    ),
+    [userInfo, userPostalCode]
   );
 
   if (loading) {
@@ -770,193 +1084,223 @@ const Home = ({ route }) => {
       <View className="flex-1">
         <Loader />
       </View>
-    ); // Loader de page
+    );
   }
 
+  // Configuration des InfoCards - toutes sont fermables pour une UX non intrusive
+  const infoCards = [
+    {
+      isVisible: parrain && !!user,
+      iconName: "gift",
+      title: i18n.t("invitez_vos_amis_gagnez_ensemble"),
+      description: i18n.t("partagez_code_avantages_exclusifs"),
+      buttonText: i18n.t("parrainer"),
+      buttonBgClass: "bg-emerald-500 dark:bg-orange-600",
+      onButtonPress: () => {
+        navigation.navigate("Profil");
+        setTimeout(() => {
+          navigation.navigate("Profil", { screen: "ReferralPage" });
+        }, 100);
+      },
+      canDismiss: true,
+    },
+    {
+      isVisible: !userLocation && !!user,
+      iconName: "location",
+      title: i18n.t("activez_votre_localisation"),
+      description: i18n.t("activez_localisation_voir_evenements_proches"),
+      buttonText: i18n.t("activer_la_localisation"),
+      buttonBgClass: "bg-yellow-500 dark:bg-yellow-600",
+      onButtonPress: openSettings,
+      canDismiss: true,
+    },
+    {
+      isVisible: notif && !!user,
+      iconName: "notifications",
+      title: i18n.t("notifications"),
+      description: i18n.t("recevez_alertes_nouveautes_evenements"),
+      buttonText: i18n.t("activer_les_notifications"),
+      buttonBgClass: "bg-orange-500 dark:bg-orange-600",
+      onButtonPress: openSettings,
+      canDismiss: true,
+    },
+  ];
+
+  // Filtrage simple - toutes les cartes visibles et non fermées
+  const visibleCards = infoCards.filter(
+    (card) => card.isVisible && !dismissedModals.has(card.iconName)
+  );
+
+  const currentModalCard = visibleCards.length > 0 ? visibleCards[0] : null;
+
+  const handleCloseModal = () => {
+    // Toutes les modals peuvent être fermées pour une UX fluide
+    if (currentModalCard) {
+      setDismissedModals(
+        (prev) => new Set([...prev, currentModalCard.iconName])
+      );
+      setShowModal(false);
+    }
+  };
+
   return (
-    <View className="flex-1 bg-white dark:bg-gray-900">
+    <View
+      className="flex-1"
+      style={{
+        backgroundColor: isDarkMode ? COLORS.bgDark : "#F8FAFC",
+      }}
+    >
       <FlatList
         showsVerticalScrollIndicator={false}
+        onScroll={handleScroll}
+        onScrollBeginDrag={handleScrollBeginDrag}
+        onScrollEndDrag={handleScrollEndDrag}
+        scrollEventThrottle={16}
         ListHeaderComponent={() => (
-          // Conteneur pour les cartes et l'en-tête "Les plus récents"
-          // Ajout de padding horizontal ici pour aligner avec le contenu de la liste
-          <View className="px-1 pt-7">
-            {/* --- Cartes d'information --- */}
-            <InfoCard
-              isVisible={parrain && !!user} // Utiliser !!user pour forcer en booléen
-              iconSource={require("../../assets/icons/gift.png")}
-              iconBgClass="bg-emerald-100 dark:bg-emerald-900 p-3 rounded-full mr-4"
-              iconTintClass="tint-emerald-600 dark:tint-emerald-400"
-              iconSizeClass="w-10 h-10" // Taille spécifique pour cette carte
-              cardBgClass="bg-emerald-50 dark:bg-gray-800" // Légèrement différent du code original ? J'ai pris emerald-100
-              borderClass="border border-gray-100 dark:border-gray-700"
-              title="Invitez vos amis, gagnez ensemble !"
-              titleClass="text-gray-900 dark:text-white text-lg" // Police Medium appliquée dans InfoCard
-              description="Partagez votre code et profitez d'avantages exclusifs."
-              descriptionClass="text-gray-600 dark:text-gray-300" // Police Regular appliquée dans InfoCard
-              buttonText="Parrainer"
-              buttonBgClass="bg-emerald-500 dark:bg-orange-600"
-              onButtonPress={() =>
-                navigation.navigate("Profil", { screen: "ReferralPage" })
-              }
-              onClosePress={() => setParrain(false)} // Passer la fonction pour fermer
-            />
-            <InfoCard
-              isVisible={!userLocation}
-              iconSource={require("../../assets/icons/location.png")}
-              // Note: L'original avait un fond blanc/gris pour l'icône, différent des autres. Standardisé ici.
-              iconBgClass="bg-yellow-100 dark:bg-yellow-800 p-3 rounded-full mr-4"
-              iconSizeClass="w-12 h-12" // Taille standard
-              cardBgClass="bg-yellow-50 dark:bg-yellow-900"
-              borderClass="border border-yellow-300 dark:border-yellow-700" // Bordure ajoutée pour cohérence
-              // Pas de titre explicite dans l'original
-              description="Activez votre localisation pour voir les évènements les plus proches de chez vous."
-              descriptionClass="text-yellow-700 dark:text-yellow-300 text-base" // Taille ajustée vs original (lg)
-              buttonText="Activer la localisation"
-              buttonBgClass="bg-yellow-500 dark:bg-yellow-600"
-              onButtonPress={openSettings}
-            />
-            <InfoCard
-              isVisible={notif}
-              iconSource={require("../../assets/icons/notifications.png")}
-              // Note: L'original avait un fond blanc/gris pour l'icône. Standardisé ici.
-              iconBgClass="bg-orange-100 dark:bg-orange-800 p-3 rounded-full mr-4"
-              iconSizeClass="w-12 h-12" // Taille standard
-              cardBgClass="bg-orange-50 dark:bg-orange-900"
-              borderClass="border border-orange-300 dark:border-orange-700" // Bordure ajoutée pour cohérence
-              // Pas de titre explicite dans l'original
-              description="Recevez des alertes pour les nouveautés et évènements près de chez vous."
-              descriptionClass="text-orange-700 dark:text-orange-300 text-base" // Taille ajustée vs original (lg) & couleur dark corrigée
-              buttonText="Activer les notifications"
-              buttonBgClass="bg-orange-500 dark:bg-orange-600"
-              onButtonPress={openSettings}
-            />
-            <InfoCard
-              isVisible={!user}
-              iconSource={require("../../assets/icons/salut.png")}
-              // Note: L'original avait un fond blanc/gris pour l'icône. Standardisé ici.
-              iconBgClass="bg-blue-100 dark:bg-blue-800 p-3 rounded-full mr-4"
-              iconSizeClass="w-12 h-12" // Taille standard
-              cardBgClass="bg-blue-50 dark:bg-blue-900"
-              borderClass="border border-blue-300 dark:border-blue-700" // Bordure ajoutée pour cohérence
-              // Pas de titre explicite dans l'original
-              description="Interagissez avec des sportifs près de chez vous."
-              descriptionClass="text-blue-600 dark:text-blue-300 text-base" // Taille ajustée vs original (lg) & couleur corrigée
-              buttonText="Connexion"
-              buttonBgClass="bg-blue-500 dark:bg-blue-600"
-              onButtonPress={() => navigation.navigate("SignInScreen")}
-            />
-            {/* --- Section "Les plus récents" & Filtres --- */}
-            {/* Afficher cette section seulement si des activités existent ou un filtre est appliqué ? */}
-            {(activities.length > 0 || selectedCategory) && (
-              <View className="flex-row justify-between items-center mt-2 mb-4 w-full">
-                {/* Titre "Les plus récents" (Conditionné par la présence d'activités) */}
-                {activities.length > 0 && (
-                  <Text
-                    style={{ fontFamily: "Inter_500Medium" }}
-                    className="text-xl dark:text-white"
-                  >
-                    {selectedCategory
-                      ? selectedCategory.name
-                      : i18n.t("les_plus_recents")}
-                  </Text>
-                )}
-                {/* Espace flexible pour pousser les filtres à droite si le titre est caché */}
-                {activities.length === 0 && <View className="flex-1" />}
+          <View>
+            <QuickActionsSection />
 
-                {/* Conteneur pour Code Postal et Bouton Filtrer */}
-                <View className="flex-row items-center">
-                  {/* Affichage Code Postal (Conditionné) */}
-                  {userPostalCode && activities.length > 0 && (
-                    <Pressable
-                      // onPress={() => showMessage({ message: `Affichage pour ${userPostalCode}`, type: "info" })}
-                      className="mr-2 py-1 px-3 bg-blue-100 dark:bg-gray-700 rounded-full" // Padding ajusté
-                    >
-                      <Text
-                        style={{ fontFamily: "Inter_400Regular" }}
-                        className="text-blue-600 dark:text-blue-300 text-sm" // Taille ajustée
-                      >
-                        {userPostalCode}
-                      </Text>
-                    </Pressable>
-                  )}
-                  {/* Bouton Filtrer */}
-                  <Pressable
-                    onPress={() => {
-                      if (selectedCategory) {
-                        navigation.setParams({ selectedCategory: null }); // Ou votre logique de reset
-                      } else {
-                        navigation.navigate("Categories");
-                      }
+            <View className="px-4 pt-5 pb-2">
+              {selectedCategory && (
+                <View className="mb-4">
+                  <Text
+                    style={{
+                      fontFamily: "Inter_500Medium",
+                      fontSize: 14,
+                      letterSpacing: -0.2,
+                      color: isDarkMode ? "#94A3B8" : "#64748B",
+                      marginBottom: 8,
                     }}
-                    // Classes dynamiques pour le fond basé sur selectedCategory
-                    className={`py-1 px-3 rounded-full ${
-                      selectedCategory
-                        ? "bg-red-200 dark:bg-red-700" // Style quand filtre actif
-                        : "bg-blue-100 dark:bg-blue-700" // Style quand filtre inactif
-                    }`}
+                  >
+                    {activities.length} {i18n.t("resultats_pour", { defaultValue: activities.length > 1 ? "résultats pour" : "résultat pour" })} :
+                  </Text>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 8,
+                    }}
                   >
                     <Text
-                      style={{ fontFamily: "Inter_400Regular" }}
-                      // Classes dynamiques pour la couleur du texte
-                      className={`text-sm ${
-                        selectedCategory
-                          ? "text-red-800 dark:text-red-100"
-                          : "text-blue-600 dark:text-blue-100"
-                      }`}
+                      style={{
+                        fontFamily: "Inter_800ExtraBold",
+                        letterSpacing: -1,
+                        lineHeight: 34,
+                        fontSize: 28,
+                        color: isDarkMode ? "#FFFFFF" : "#0F172A",
+                      }}
+                      numberOfLines={1}
                     >
-                      {selectedCategory ? "Effacer Filtre" : "Trier"}{" "}
-                      {/* Texte dynamique */}
+                      {selectedCategory.name}
                     </Text>
-                  </Pressable>
+                    <Pressable
+                      onPress={() => navigation.setParams({ selectedCategory: null })}
+                      style={({ pressed }) => ({
+                        opacity: pressed ? 0.6 : 1,
+                        backgroundColor: isDarkMode ? "rgba(239, 68, 68, 0.15)" : "rgba(239, 68, 68, 0.1)",
+                        paddingHorizontal: 10,
+                        paddingVertical: 6,
+                        borderRadius: 12,
+                      })}
+                    >
+                      <MaterialCommunityIcons
+                        name="close"
+                        size={18}
+                        color="#EF4444"
+                      />
+                    </Pressable>
+                  </View>
                 </View>
-              </View>
-            )}
-          </View> // Fin du conteneur px-4 pt-4
+              )}
+            </View>
+          </View>
         )}
         data={activities}
-        ListEmptyComponent={() => (
-          // Style standardisé pour l'état vide
-          <View className="flex-1 items-center justify-center px-1 py-16">
-            {/* Conteneur centré */}
-            <View className="items-center text-center">
-              {/* Icône standardisée */}
-              <View className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full items-center justify-center mb-4">
-                <Ionicons
-                  name="close-outline"
-                  size={32}
-                  className="text-gray-400 dark:text-gray-500"
-                />
-              </View>
-              {/* Texte principal */}
-              <Text
-                style={{ fontFamily: "Inter_500Medium" }} // Utilisation de medium pour le titre
-                className="text-lg text-gray-900 dark:text-white mb-1"
-              >
-                {selectedCategory
-                  ? "Aucun évènement trouvé"
-                  : "Rien à afficher pour le moment"}
-              </Text>
-              {/* Texte secondaire */}
-              <Text
-                style={{ fontFamily: "Inter_400Regular" }}
-                className="text-gray-500 dark:text-gray-400 text-center"
-              >
-                {selectedCategory
-                  ? "Essayez une autre catégorie ou retirez le filtre."
-                  : "Revenez plus tard ou explorez d'autres sections."}
-              </Text>
-              {/* Optionnel: Bouton pour retirer le filtre si actif */}
-              {selectedCategory && (
-                <Pressable
-                  onPress={() =>
-                    navigation.setParams({ selectedCategory: null })
-                  }
-                  className="mt-4 py-2 px-4 rounded-full bg-blue-100 dark:bg-blue-700"
+        ListEmptyComponent={() =>
+          !loading ? (
+            <View className="flex-1 items-center justify-center px-4 py-24">
+              <View className="items-center text-center">
+                <View
+                  style={{
+                    width: 96,
+                    height: 96,
+                    borderRadius: 48,
+                    backgroundColor: isDarkMode
+                      ? "rgba(249, 115, 22, 0.12)"
+                      : "rgba(249, 115, 22, 0.08)",
+                    borderWidth: 2,
+                    borderColor: isDarkMode
+                      ? "rgba(249, 115, 22, 0.2)"
+                      : "rgba(249, 115, 22, 0.15)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginBottom: 24,
+                  }}
+                >
+                  <Ionicons
+                    name="calendar-outline"
+                    size={44}
+                    color="#F97316"
+                  />
+                </View>
+
+                <Text
+                  style={{
+                    fontFamily: "Inter_800ExtraBold",
+                    letterSpacing: -0.8,
+                    fontSize: 26,
+                    marginBottom: 10,
+                    color: isDarkMode ? "#FFFFFF" : "#0F172A",
+                  }}
+                >
+                  {selectedCategory
+                    ? i18n.t("aucun_evenement_trouve")
+                    : i18n.t("rien_a_afficher")}
+                </Text>
+
+                <Text
+                  style={{
+                    fontFamily: "Inter_500Medium",
+                    fontSize: 16,
+                    lineHeight: 24,
+                    letterSpacing: -0.3,
+                    color: isDarkMode ? "#94A3B8" : "#64748B",
+                    textAlign: "center",
+                    maxWidth: 320,
+                  }}
+                >
+                  {selectedCategory
+                    ? i18n.t("essayez_autre_categorie_ou_retirez_filtre")
+                    : i18n.t("revenez_plus_tard_ou_explorez")}
+                </Text>
+
+                {selectedCategory && (
+                  <Pressable
+                    onPress={() =>
+                      navigation.setParams({ selectedCategory: null })
+                    }
+                    style={({ pressed }) => ({
+                      marginTop: 24,
+                      paddingVertical: 14,
+                      paddingHorizontal: 28,
+                      borderRadius: 20,
+                      backgroundColor: "#F97316",
+                      opacity: pressed ? 0.9 : 1,
+                      transform: [{ scale: pressed ? 0.98 : 1 }],
+                      shadowColor: "#F97316",
+                      shadowOffset: { width: 0, height: 4 },
+                      shadowOpacity: 0.3,
+                      shadowRadius: 12,
+                      elevation: 5,
+                  })}
                 >
                   <Text
-                    style={{ fontFamily: "Inter_400Regular" }}
-                    className="text-blue-800 dark:text-blue-100 text-sm"
+                    style={{
+                      fontFamily: "Inter_700Bold",
+                      fontSize: 16,
+                      letterSpacing: -0.3,
+                      color: "#FFFFFF",
+                    }}
                   >
                     {i18n.t("retirer_le_filtre")}
                   </Text>
@@ -964,20 +1308,163 @@ const Home = ({ route }) => {
               )}
             </View>
           </View>
-        )}
+          ) : null
+        }
         renderItem={renderActivity}
-        keyExtractor={(item) => item.id.toString()} // Assurer que la clé est une string
-        // Ajouter un padding global au contenu de la liste au lieu d'un paddingBottom seul
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20 }} // px-4 = 16
+        keyExtractor={(item) => item.id.toString()}
+        contentContainerStyle={{ paddingBottom: 120 }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={[COLORS.primary]} // Android
-            tintColor={COLORS.primary} // iOS
+            colors={[COLORS.primary, COLORS.secondary]}
+            tintColor={COLORS.primary}
+            progressBackgroundColor={isDarkMode ? "#1E293B" : "#FFFFFF"}
+            titleColor={isDarkMode ? "#94A3B8" : "#64748B"}
           />
         }
       />
+
+      {/* Bouton flottant filtre */}
+      <Animated.View
+        pointerEvents="box-none"
+        style={[
+          {
+            position: "absolute",
+            bottom: 100,
+            right: 20,
+            zIndex: 999999,
+          },
+          filterButtonAnimatedStyle,
+        ]}
+      >
+        <Pressable
+          onPress={() => {
+            selectedCategory
+              ? navigation.setParams({ selectedCategory: null })
+              : navigation.navigate("FilterScreen");
+          }}
+        >
+          {({ pressed }) => (
+            <View style={{ position: "relative" }}>
+              <View
+                style={{
+                  width: 52,
+                  height: 52,
+                  borderRadius: 26,
+                  backgroundColor: selectedCategory ? "#EF4444" : "#F97316",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  shadowColor: "#000",
+                  shadowOffset: { width: 0, height: 3 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 6,
+                  elevation: 6,
+                  opacity: pressed ? 0.9 : 1,
+                }}
+              >
+                <MaterialCommunityIcons
+                  name={selectedCategory ? "close" : "tune-variant"}
+                  size={22}
+                  color="#FFFFFF"
+                />
+              </View>
+              {selectedCategory && (
+                <View
+                  style={{
+                    position: "absolute",
+                    top: -4,
+                    right: -4,
+                    backgroundColor: "#FFFFFF",
+                    borderRadius: 10,
+                    width: 20,
+                    height: 20,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderWidth: 2,
+                    borderColor: "#EF4444",
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontFamily: "Inter_700Bold",
+                      fontSize: 11,
+                      color: "#EF4444",
+                    }}
+                  >
+                    1
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+        </Pressable>
+      </Animated.View>
+
+      {/* Modal pour les InfoCards - Non intrusive */}
+      {currentModalCard && (
+        <InfoCardModal
+          visible={showModal}
+          iconName={currentModalCard.iconName}
+          title={currentModalCard.title}
+          description={currentModalCard.description}
+          buttonText={currentModalCard.buttonText}
+          buttonBgClass={currentModalCard.buttonBgClass}
+          onButtonPress={currentModalCard.onButtonPress}
+          onClose={handleCloseModal}
+        />
+      )}
+
+      {/* Modal de connexion pour actions sociales */}
+      <LoginPromptModal
+        visible={showLoginPrompt}
+        onClose={() => setShowLoginPrompt(false)}
+        actionType={loginPromptAction}
+      />
+
+      {/* Modal de commentaires */}
+      <CommentsModal
+        visible={showComments}
+        onClose={() => {
+          setShowComments(false);
+          setSelectedActivityId(null);
+        }}
+        activityId={selectedActivityId}
+      />
+
+      {/* Modal de permissions séquentielles - affiché au premier lancement */}
+      <PermissionsModal
+        visible={showPermissionsModal}
+        onComplete={async () => {
+          setShowPermissionsModal(false);
+          // Après la complétion, gérer les tokens de notifications
+          try {
+            const token = await registerForPushNotificationsAsync();
+            if (token) {
+              await addExpoPushTokenToUser(token);
+            }
+            // Rafraîchir les états de permissions
+            const { status } = await Notifications.getPermissionsAsync();
+            setNotif(status !== "granted");
+          } catch (error) {
+            console.error('Erreur lors de la gestion post-permissions:', error);
+          }
+        }}
+      />
+
+      {/* Tutoriel de swipe - affiché une seule fois */}
+      {showSwipeTutorial && (
+        <SwipeHandTutorial
+          onComplete={async () => {
+            setShowSwipeTutorial(false);
+            try {
+              await AsyncStorage.setItem('hasSeenSwipeTutorial', 'true');
+            } catch (error) {
+              console.error('Erreur lors de la sauvegarde du tutoriel:', error);
+            }
+          }}
+        />
+      )}
     </View>
   );
 };

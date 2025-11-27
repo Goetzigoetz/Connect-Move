@@ -14,8 +14,10 @@ export default function UserProfilePicture({
   return (
     <Animated.View entering={FadeIn} exiting={FadeOut}>
       <View
-        className="z-20 items-center justify-center"
         style={{
+          zIndex: 20,
+          alignItems: "center",
+          justifyContent: "center",
           height: w ? w + 5 : default_size + 5,
           width: w ? w + 5 : default_size + 5,
           borderRadius: w ? w + 5 : default_size + 5 / 2,
@@ -27,8 +29,15 @@ export default function UserProfilePicture({
         {/* absolute icon view */}
         {verified && (
           <View
-            activeOpacity={0.5}
-            className={`absolute top-0 right-0 bg-white rounded-full z-20 self-center`}
+            style={{
+              position: "absolute",
+              top: 0,
+              right: 0,
+              backgroundColor: "white",
+              borderRadius: 999,
+              zIndex: 20,
+              alignSelf: "center",
+            }}
           >
             <Ionicons
               name={"checkmark-done-circle"}
